@@ -1,20 +1,15 @@
-<!--
-Copyright 2021 Google LLC
+# Agent for SQL Server
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+[![Build](https://github.com/GoogleCloudPlatform/sql-server-agent/actions/workflows/go.yml/badge.svg)](https://github.com/GoogleCloudPlatform/sql-server-agent/actions)
 
-     https://www.apache.org/licenses/LICENSE-2.0
+This repository contains the Agent for SQL Server (for Windows and Linux). The agent is
+intended to run on Google Cloud compute instances where an SQL Server workload is
+running.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
--->
+See documentation at: https://cloud.google.com/workload-manager/docs/set-up-agent-for-sql-server
 
-## Solution Overview
-__Warning:__ This project is currently in beta. Please open an issue if you would like to report a bug or documentation issue, request a feature, or have a question.
+## License and Copyright
 
-Workload Manager agent for SQL Server.
+Copyright 2022 Google LLC.
+
+Apache License, Version 2.0
