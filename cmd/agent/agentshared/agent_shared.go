@@ -97,7 +97,7 @@ func RunOSCollection(ctx context.Context, c guestcollector.GuestCollector, timeo
 	details := []internal.Details{}
 	log.Logger.Debug("Collecting guest rules")
 	details = append(details, c.CollectGuestRules(ctx, timeout))
-	err := guestcollector.MarkUnknownOsFields(&details)
+	err := c.MarkUnknownOSFields(&details)
 	if err != nil {
 		log.Logger.Warnf("RunOSCollection: Failed to mark unknown collected fields. error: %v", err)
 	}

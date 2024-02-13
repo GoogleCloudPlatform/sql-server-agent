@@ -258,12 +258,12 @@ func TestFriendlyNameToDiskType(t *testing.T) {
 
 // TestCheckWindowsOsReturnedCount compares the os returned fields for windows_guestcollector with the returned fields for OSCollectorResultFields
 func TestCheckWindowsOsReturnedCount(t *testing.T) {
-	guestCollectorCount := len(allOSFields)
+	guestCollectorCount := len(WindowsCollectionOSFields())
 	// logicalDiskMediaType() accounts for fields[internal.LocalSSDRule] field which isn't explicitly definied in guestRuleWMIMap
 	guestCollectorWinCount := 1
 	testWC := NewWindowsCollector(nil, nil, nil)
 
-	for _, field := range allOSFields {
+	for _, field := range WindowsCollectionOSFields() {
 		_, ok := testWC.guestRuleWMIMap[field]
 		if ok {
 			guestCollectorWinCount++
@@ -272,5 +272,161 @@ func TestCheckWindowsOsReturnedCount(t *testing.T) {
 
 	if guestCollectorWinCount != guestCollectorCount {
 		t.Errorf("guestCollectorWinCount = %d, want %d", guestCollectorWinCount, guestCollectorCount)
+	}
+}
+
+func TestCheckWindowsOSCollectedMetrics(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []internal.Details
+		want  []internal.Details
+	}{
+		{
+			name: "success for empty input",
+			input: []internal.Details{
+				internal.Details{Name: "OS"},
+			},
+			want: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule:     "unknown",
+							internal.LocalSSDRule:                "unknown",
+							internal.DataDiskAllocationUnitsRule: "unknown",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "success for half collected input",
+			input: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule: "test",
+						},
+					},
+				},
+			},
+			want: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule:     "test",
+							internal.LocalSSDRule:                "unknown",
+							internal.DataDiskAllocationUnitsRule: "unknown",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "success with additional field",
+			input: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							"testing": "any output",
+						},
+					},
+				},
+			},
+			want: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule:     "unknown",
+							internal.LocalSSDRule:                "unknown",
+							internal.DataDiskAllocationUnitsRule: "unknown",
+							"testing":                            "any output",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testWC := NewWindowsCollector(nil, nil, nil)
+			err := testWC.MarkUnknownOSFields(&tc.input)
+			if err != nil {
+				t.Fatalf("TestCheckOSCollectedMetrics(%q) unexpected error: %v", tc.input, err)
+			}
+			if diff := cmp.Diff(tc.input, tc.want); diff != "" {
+				t.Errorf("TestCheckOSCollectedMetrics(%q) returned diff (got +want):\n%s", tc.input, diff)
+			}
+		})
+	}
+}
+
+func TestCheckWindowsOSCollectedMetrics_BadInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []internal.Details
+	}{
+		{
+			name: "fail for incorrect OS name",
+			input: []internal.Details{
+				internal.Details{
+					Name: "NOT OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule: "any output",
+							internal.LocalSSDRule:            "any output",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "fail for too many details",
+			input: []internal.Details{
+				internal.Details{
+					Name:   "OS",
+					Fields: []map[string]string{},
+				},
+				internal.Details{
+					Name:   "OS",
+					Fields: []map[string]string{},
+				},
+			},
+		},
+		{
+			name:  "fail for no details",
+			input: []internal.Details{},
+		},
+		{
+			name: "fail for too many fields",
+			input: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule:     "any output",
+							internal.LocalSSDRule:                "any output",
+							internal.DataDiskAllocationUnitsRule: "any output",
+						},
+						map[string]string{},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testWC := NewWindowsCollector(nil, nil, nil)
+			err := testWC.MarkUnknownOSFields(&tc.input)
+			if err == nil {
+				t.Fatalf("TestCheckOSCollectedMetrics(%q) expected error", tc.input)
+			}
+		})
 	}
 }
