@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/crypto/ssh"
+	"github.com/GoogleCloudPlatform/sapagent/shared/commandlineexecutor"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/instanceinfo"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/remote"
@@ -209,17 +210,18 @@ func TestPhysicalDriveToDiskType(t *testing.T) {
 	}
 }
 
-func TestCollectLinuxGuestRules(t *testing.T) {
+func TestCollectLinuxGuestRulesLocal(t *testing.T) {
 	testcases := []struct {
-		name                   string
-		diskMapping            bool
-		mockRuleMap            bool
-		mockWMIErr             bool
-		commandExecutorMapMock map[string]commandExecutor
-		want                   internal.Details
+		name             string
+		isPersistentDisk bool
+		NoMocking        bool
+		powerPlanInput   string
+		allDisks         []*instanceinfo.Disks
+		want             internal.Details
 	}{
 		{
-			name: "success",
+			name:      "local: expected output when no mocking is done",
+			NoMocking: true,
 			want: internal.Details{
 				Name: "OS",
 				Fields: []map[string]string{
@@ -232,12 +234,205 @@ func TestCollectLinuxGuestRules(t *testing.T) {
 			},
 		},
 		{
-			name:        "success with mocked data",
+			name:           "local: success happy path",
+			powerPlanInput: "Current active profile: throughput-performance",
+			allDisks: []*instanceinfo.Disks{
+				&instanceinfo.Disks{
+					DeviceName: "someDevice",
+					DiskType:   internal.PersistentSSD.String(),
+					Mapping:    "",
+				},
+			},
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"data_disk_allocation_units": `[{"BlockSize":"4096","Caption":"sda"}]`,
+						"local_ssd":                  fmt.Sprintf(`{"sda":"%s"}`, internal.PersistentSSD.String()),
+						"power_profile_setting":      "High performance",
+					},
+				},
+			},
+		},
+		{
+			name:           "local: power plan balanced",
+			powerPlanInput: "Current active profile: balanced",
+			allDisks: []*instanceinfo.Disks{
+				&instanceinfo.Disks{
+					DeviceName: "someDevice",
+					DiskType:   internal.PersistentSSD.String(),
+					Mapping:    "",
+				},
+			},
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"data_disk_allocation_units": `[{"BlockSize":"4096","Caption":"sda"}]`,
+						"local_ssd":                  fmt.Sprintf(`{"sda":"%s"}`, internal.PersistentSSD.String()),
+						"power_profile_setting":      "balanced",
+					},
+				},
+			},
+		},
+		{
+			name:           "local: power plan wrong output",
+			powerPlanInput: "Unexpected output value",
+			allDisks: []*instanceinfo.Disks{
+				&instanceinfo.Disks{
+					DeviceName: "someDevice",
+					DiskType:   internal.PersistentSSD.String(),
+					Mapping:    "",
+				},
+			},
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"data_disk_allocation_units": `[{"BlockSize":"4096","Caption":"sda"}]`,
+						"local_ssd":                  fmt.Sprintf(`{"sda":"%s"}`, internal.PersistentSSD.String()),
+						"power_profile_setting":      "unknown",
+					},
+				},
+			},
+		},
+		{
+			name: "local: scratch disktype",
+			allDisks: []*instanceinfo.Disks{
+				&instanceinfo.Disks{
+					DeviceName: "someDevice",
+					DiskType:   internal.LocalSSD.String(),
+					Mapping:    "",
+				},
+			},
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"data_disk_allocation_units": `[{"BlockSize":"4096","Caption":"sda"}]`,
+						"local_ssd":                  fmt.Sprintf(`{"sda":"%s"}`, internal.LocalSSD.String()),
+						"power_profile_setting":      "unknown",
+					},
+				},
+			},
+		},
+		{
+			name:           "local: local disks is empty",
+			powerPlanInput: "Current active profile: balanced",
+			allDisks:       []*instanceinfo.Disks{},
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"data_disk_allocation_units": "unknown",
+						"local_ssd":                  "unknown",
+						"power_profile_setting":      "balanced",
+					},
+				},
+			},
+		},
+	}
+
+	// happy path for disks, as its tested in the TestPhysicalDriveToDiskType() test
+	defer func(f func(string) (string, error)) { symLinkCommand = f }(symLinkCommand)
+	symLinkCommand = func(string) (string, error) {
+		return "sda", nil
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			collector := NewLinuxCollector(nil, "", "", "", false, 22)
+			// happy path for disks, as its tested in the TestPhysicalDriveToDiskType() test
+			collector.disks = tc.allDisks
+
+			collector.localExecutor = func(ctx context.Context, params commandlineexecutor.Params) commandlineexecutor.Result {
+				switch params.ArgsToSplit {
+				case fmt.Sprintf(" -c '%s'", powerPlanCommand):
+					return commandlineexecutor.Result{
+						StdOut: tc.powerPlanInput,
+					}
+				case fmt.Sprintf(" -c '%ssda'", dataDiskAllocationUnitsCommand):
+					return commandlineexecutor.Result{
+						StdOut: "4096",
+					}
+				default:
+					return commandlineexecutor.Result{
+						StdErr: "Error, create a new test command case",
+					}
+				}
+			}
+			if tc.NoMocking {
+				// this unsets all prior mocking
+				collector = NewLinuxCollector(nil, "", "", "", false, 22)
+			}
+
+			got := collector.CollectGuestRules(context.Background(), time.Minute)
+			if diff := cmp.Diff(got, tc.want); diff != "" {
+				t.Errorf("CollectGuestRules() returned wrong result (-got +want):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCollectLinuxGuestRulesLocal_Fail(t *testing.T) {
+	testcases := []struct {
+		name                   string
+		ssdRan                 bool
+		powerPlanErr           bool
+		dataDiskErr            bool
+		mockRuleMap            bool
+		mockExecutorErr        bool
+		localExecutorNil       bool
+		commandExecutorMapMock map[string]commandExecutor
+		want                   internal.Details
+	}{
+		{
+			name:   "local: running unexpected runCommand() local ssd still returned unknown",
+			ssdRan: true,
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"data_disk_allocation_units": "unknown",
+						"local_ssd":                  "unknown",
+						"power_profile_setting":      "unknown",
+					},
+				},
+			},
+		},
+		{
+			name:         "local: power plan error",
+			powerPlanErr: true,
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"data_disk_allocation_units": "unknown",
+						"local_ssd":                  "unknown",
+						"power_profile_setting":      "unknown",
+					},
+				},
+			},
+		},
+		{
+			name:        "local: data disk error",
+			dataDiskErr: true,
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"data_disk_allocation_units": "unknown",
+						"local_ssd":                  "unknown",
+						"power_profile_setting":      "unknown",
+					},
+				},
+			},
+		},
+		{
+			name:        "local: do not save to result if isRule is false",
 			mockRuleMap: true,
 			commandExecutorMapMock: map[string]commandExecutor{
 				internal.PowerProfileSettingRule: commandExecutor{
-					isRule: true,
-					runCommand: func(ctx context.Context, command string) (string, error) {
+					runCommand: func(ctx context.Context, command string, exec commandlineexecutor.Execute) (string, error) {
 						return "testvalue", nil
 					},
 				},
@@ -246,45 +441,37 @@ func TestCollectLinuxGuestRules(t *testing.T) {
 				Name: "OS",
 				Fields: []map[string]string{
 					map[string]string{
-						internal.PowerProfileSettingRule: "testvalue",
-						"local_ssd":                      "unknown",
+						"data_disk_allocation_units": "unknown",
+						"local_ssd":                  "unknown",
+						"power_profile_setting":      "unknown",
 					},
 				},
 			},
 		},
 		{
-			name:        "do not save to result if isRule is false",
+			name:        "local: empty detail when runCommand returns error",
 			mockRuleMap: true,
 			commandExecutorMapMock: map[string]commandExecutor{
 				internal.PowerProfileSettingRule: commandExecutor{
-					runCommand: func(ctx context.Context, command string) (string, error) {
-						return "testvalue", nil
-					},
-				},
-			},
-			want: internal.Details{
-				Name:   "OS",
-				Fields: []map[string]string{map[string]string{"local_ssd": "unknown"}},
-			},
-		},
-		{
-			name:        "empty detail when runCommand returns error",
-			mockRuleMap: true,
-			commandExecutorMapMock: map[string]commandExecutor{
-				internal.PowerProfileSettingRule: commandExecutor{
-					runCommand: func(ctx context.Context, command string) (string, error) {
+					runCommand: func(ctx context.Context, command string, exec commandlineexecutor.Execute) (string, error) {
 						return "", fmt.Errorf("error")
 					},
 				},
 			},
 			want: internal.Details{
-				Name:   "OS",
-				Fields: []map[string]string{map[string]string{"local_ssd": "unknown"}},
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"data_disk_allocation_units": "unknown",
+						"local_ssd":                  "unknown",
+						"power_profile_setting":      "unknown",
+					},
+				},
 			},
 		},
 		{
-			name:       "invalid command return empty result",
-			mockWMIErr: true,
+			name:            "local: invalid command return empty result",
+			mockExecutorErr: true,
 			want: internal.Details{
 				Name: "OS",
 				Fields: []map[string]string{
@@ -292,6 +479,18 @@ func TestCollectLinuxGuestRules(t *testing.T) {
 						"data_disk_allocation_units": "unknown",
 						"local_ssd":                  "unknown",
 						"power_profile_setting":      "unknown",
+					},
+				},
+			},
+		},
+		{
+			name:             "local: expected output when localExecutor is used",
+			localExecutorNil: true,
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"local_ssd": "unknown",
 					},
 				},
 			},
@@ -301,20 +500,35 @@ func TestCollectLinuxGuestRules(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			collector := NewLinuxCollector(nil, "", "", "", false, 22)
-			if tc.mockRuleMap {
-				collector.guestRuleCommandMap = tc.commandExecutorMapMock
-			} else if tc.mockWMIErr {
+			collector.localExecutor = func(context.Context, commandlineexecutor.Params) commandlineexecutor.Result {
+				if tc.ssdRan {
+					return commandlineexecutor.Result{Error: errors.New("ssd error")}
+				}
+				if tc.powerPlanErr {
+					return commandlineexecutor.Result{Error: errors.New("power plan error")}
+				}
+				if tc.dataDiskErr {
+					return commandlineexecutor.Result{Error: errors.New("data disk error")}
+				}
+				return commandlineexecutor.Result{}
+			}
+			if tc.mockExecutorErr {
 				for r, m := range collector.guestRuleCommandMap {
 					m.command = "any query"
 					collector.guestRuleCommandMap[r] = m
 				}
 			}
+			if tc.localExecutorNil {
+				collector.localExecutor = nil
+			}
+
 			got := collector.CollectGuestRules(context.Background(), time.Minute)
 			if diff := cmp.Diff(got, tc.want); diff != "" {
 				t.Errorf("CollectGuestRules() returned wrong result (-got +want):\n%s", diff)
 			}
 		})
 	}
+
 }
 
 func TestCollectLinuxGuestRulesRemote(t *testing.T) {

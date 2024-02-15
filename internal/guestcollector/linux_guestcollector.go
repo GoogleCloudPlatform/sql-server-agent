@@ -71,12 +71,13 @@ type LinuxCollector struct {
 	remote                 bool
 	port                   int32
 	remoteRunner           remote.Executor
+	localExecutor          commandlineexecutor.Execute
 }
 
 type commandExecutor struct {
 	command          string
 	isRule           bool
-	runCommand       func(context.Context, string) (string, error)
+	runCommand       func(context.Context, string, commandlineexecutor.Execute) (string, error)
 	runRemoteCommand func(context.Context, string, remote.Executor) (string, error)
 }
 
@@ -126,12 +127,14 @@ func NewLinuxCollector(disks []*instanceinfo.Disks, ipAddr, username, privateKey
 			log.Logger.Error(err)
 			c.remoteRunner = nil
 		}
+	} else {
+		c.localExecutor = commandlineexecutor.ExecuteCommand
 	}
 
 	c.guestRuleCommandMap[internal.LocalSSDRule] = commandExecutor{
 		command: localSSDCommand,
 		isRule:  false,
-		runCommand: func(ctx context.Context, command string) (string, error) {
+		runCommand: func(ctx context.Context, command string, exec commandlineexecutor.Execute) (string, error) {
 			// LocalSSDRule is collected differently, check DiskToDiskType method
 			return "", nil
 		},
@@ -176,8 +179,8 @@ func NewLinuxCollector(disks []*instanceinfo.Disks, ipAddr, username, privateKey
 	c.guestRuleCommandMap[internal.PowerProfileSettingRule] = commandExecutor{
 		command: powerPlanCommand,
 		isRule:  true,
-		runCommand: func(ctx context.Context, command string) (string, error) {
-			res, err := internal.CommandLineExecutorWrapper(ctx, "/bin/sh", fmt.Sprintf(" -c '%s'", command), commandlineexecutor.ExecuteCommand)
+		runCommand: func(ctx context.Context, command string, exec commandlineexecutor.Execute) (string, error) {
+			res, err := internal.CommandLineExecutorWrapper(ctx, "/bin/sh", fmt.Sprintf(" -c '%s'", command), exec)
 			if err != nil {
 				return "", fmt.Errorf("Check help docs, tuned package not installed or no power profile set. " + err.Error())
 			}
@@ -199,7 +202,7 @@ func NewLinuxCollector(disks []*instanceinfo.Disks, ipAddr, username, privateKey
 	c.guestRuleCommandMap[internal.DataDiskAllocationUnitsRule] = commandExecutor{
 		command: dataDiskAllocationUnitsCommand,
 		isRule:  true,
-		runCommand: func(ctx context.Context, command string) (string, error) {
+		runCommand: func(ctx context.Context, command string, exec commandlineexecutor.Execute) (string, error) {
 			if c.disks == nil || len(c.disks) == 0 {
 				return "", fmt.Errorf("data disk allocation failed. no disks found")
 			}
@@ -216,7 +219,7 @@ func NewLinuxCollector(disks []*instanceinfo.Disks, ipAddr, username, privateKey
 					continue
 				}
 				fullCommand := command + disk.Mapping
-				blockSize, err := internal.CommandLineExecutorWrapper(ctx, "/bin/sh", fmt.Sprintf(" -c '%s'", fullCommand), commandlineexecutor.ExecuteCommand)
+				blockSize, err := internal.CommandLineExecutorWrapper(ctx, "/bin/sh", fmt.Sprintf(" -c '%s'", fullCommand), exec)
 				if err != nil {
 					return "", err
 				}
@@ -401,8 +404,6 @@ func (c *LinuxCollector) findHwinfoFields(lshwResult string) (lshwEntry, error) 
 }
 
 func (c *LinuxCollector) findLshwFieldString(lshwResult string, field string) (string, error) {
-	// expression := fmt.Sprintf(`"%s" : "(.*?)"`, field)
-	// reg := regexp.MustCompile(expression)
 	reg, ok := c.lshwRegexMapping[field]
 	if !ok {
 		return "", fmt.Errorf("regexp did not find %s field", field)
@@ -416,8 +417,6 @@ func (c *LinuxCollector) findLshwFieldString(lshwResult string, field string) (s
 }
 
 func (c *LinuxCollector) findLshwFieldInt(lshwResult string, field string) (int, error) {
-	// expression := fmt.Sprintf(`"%s" : (\d+?)[\D]`, field)
-	// reg := regexp.MustCompile(expression)
 	reg, ok := c.lshwRegexMapping[field]
 	if !ok {
 		return 0, fmt.Errorf("regexp did not find %s field", field)
@@ -456,6 +455,12 @@ func (c *LinuxCollector) CollectGuestRules(ctx context.Context, timeout time.Dur
 	fields := map[string]string{}
 
 	if !c.remote {
+		if c.localExecutor == nil {
+			fields[internal.LocalSSDRule] = "unknown"
+			details.Fields = append(details.Fields, fields)
+			log.Logger.Error("Local executor is nil. Contact customer support.")
+			return details
+		}
 		ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 		ch := make(chan bool, 1)
@@ -499,7 +504,7 @@ func (c *LinuxCollector) CollectGuestRules(ctx context.Context, timeout time.Dur
 					}
 					fields[rule] = res
 				} else if exe.isRule { // local calls are only made if isrule is true
-					res, err := exe.runCommand(ctx, exe.command)
+					res, err := exe.runCommand(ctx, exe.command, c.localExecutor)
 					if err != nil {
 						if strings.Contains(err.Error(), "Check help docs") {
 							log.Logger.Warnw("Failed to run remote command. Install command on linux vm to collect more data", "command", exe.command, "error", err)
