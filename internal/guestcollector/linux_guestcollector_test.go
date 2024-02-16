@@ -72,17 +72,19 @@ type mockRemote struct {
 	runErr           bool
 	lshwErr          bool
 	createSessionErr bool
+	dataDiskErr      bool
 	input            string
 	powerPlanInput   string
 }
 
-func newMockRemote(runErr bool, createSessionErr bool, lshwErr bool, powerPlanInput string) *mockRemote {
+func newMockRemote(runErr bool, createSessionErr bool, lshwErr bool, powerPlanInput string, dataDiskErr bool) *mockRemote {
 	return &mockRemote{
 		runErr:           runErr,
 		createSessionErr: createSessionErr,
 		lshwErr:          lshwErr,
 		input:            "any input string",
 		powerPlanInput:   powerPlanInput,
+		dataDiskErr:      dataDiskErr,
 	}
 }
 
@@ -93,6 +95,11 @@ func (m *mockRemote) Run(cmd string, session remote.SSHSessionInterface) (string
 	if m.lshwErr {
 		if cmd == localSSDCommand {
 			return "", errors.New("lshw error")
+		}
+	}
+	if m.dataDiskErr {
+		if cmd == fmt.Sprintf("%ssda", dataDiskAllocationUnitsCommand) {
+			return "", errors.New("data disk error")
 		}
 	}
 	switch cmd {
@@ -111,8 +118,8 @@ func (m *mockRemote) Run(cmd string, session remote.SSHSessionInterface) (string
 		Capacity: 64 GB (68719476736 bytes)`, persistentDisk), nil
 	case powerPlanCommand:
 		return m.powerPlanInput, nil
-	case dataDiskAllocationUnitsCommand:
-		return "", nil
+	case fmt.Sprintf("%ssda", dataDiskAllocationUnitsCommand):
+		return "4096", nil
 	default:
 		return "unknown", nil
 	}
@@ -484,6 +491,28 @@ func TestCollectLinuxGuestRulesLocal_Fail(t *testing.T) {
 			},
 		},
 		{
+			name:            "local: local_sdd command attempts to run.",
+			mockExecutorErr: true,
+			commandExecutorMapMock: map[string]commandExecutor{
+				internal.LocalSSDRule: commandExecutor{
+					isRule: true,
+					runCommand: func(ctx context.Context, command string, exec commandlineexecutor.Execute) (string, error) {
+						return "", nil
+					},
+				},
+			},
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"data_disk_allocation_units": "unknown",
+						"local_ssd":                  "unknown",
+						"power_profile_setting":      "unknown",
+					},
+				},
+			},
+		},
+		{
 			name:             "local: expected output when localExecutor is used",
 			localExecutorNil: true,
 			want: internal.Details{
@@ -539,6 +568,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 		lshwErr           bool
 		createSessionErr  bool
 		emptyRemoteRunner bool
+		dataDiskErr       bool
 		want              internal.Details
 	}{
 		{
@@ -547,7 +577,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 			want: internal.Details{
 				Name: "OS",
 				Fields: []map[string]string{map[string]string{
-					"data_disk_allocation_units": `[{"BlockSize":"unknown","Caption":"sda"}]`,
+					"data_disk_allocation_units": `[{"BlockSize":"4096","Caption":"sda"}]`,
 					"local_ssd":                  `{"sda":"PERSISTENT-SSD"}`,
 					"power_profile_setting":      "High performance",
 				}},
@@ -560,7 +590,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 			want: internal.Details{
 				Name: "OS",
 				Fields: []map[string]string{map[string]string{
-					"data_disk_allocation_units": `[{"BlockSize":"unknown","Caption":"sda"}]`,
+					"data_disk_allocation_units": `[{"BlockSize":"4096","Caption":"sda"}]`,
 					"local_ssd":                  `{"sda":"PERSISTENT-SSD"}`,
 					"power_profile_setting":      "High performance",
 				}},
@@ -572,7 +602,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 			want: internal.Details{
 				Name: "OS",
 				Fields: []map[string]string{map[string]string{
-					"data_disk_allocation_units": `[{"BlockSize":"unknown","Caption":"sda"}]`,
+					"data_disk_allocation_units": `[{"BlockSize":"4096","Caption":"sda"}]`,
 					"local_ssd":                  `{"sda":"PERSISTENT-SSD"}`,
 					"power_profile_setting":      "balanced",
 				}},
@@ -584,7 +614,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 			want: internal.Details{
 				Name: "OS",
 				Fields: []map[string]string{map[string]string{
-					"data_disk_allocation_units": `[{"BlockSize":"unknown","Caption":"sda"}]`,
+					"data_disk_allocation_units": `[{"BlockSize":"4096","Caption":"sda"}]`,
 					"local_ssd":                  `{"sda":"PERSISTENT-SSD"}`,
 					"power_profile_setting":      "unknown",
 				}},
@@ -626,12 +656,26 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 				Fields: []map[string]string{{"local_ssd": "unknown"}},
 			},
 		},
+		{
+			name:        "remote: data disk allocation error",
+			dataDiskErr: true,
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{
+					map[string]string{
+						"data_disk_allocation_units": `[{"BlockSize":"unknown","Caption":"sda"}]`,
+						"local_ssd":                  `{"sda":"PERSISTENT-SSD"}`,
+						"power_profile_setting":      "unknown",
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			collector := NewLinuxCollector(nil, "", "", "", true, 22)
 			if !tc.emptyRemoteRunner {
-				collector.remoteRunner = newMockRemote(tc.runErr, tc.createSessionErr, tc.lshwErr, tc.powerPlanInput)
+				collector.remoteRunner = newMockRemote(tc.runErr, tc.createSessionErr, tc.lshwErr, tc.powerPlanInput, tc.dataDiskErr)
 			} else {
 				collector.remoteRunner = nil
 			}
