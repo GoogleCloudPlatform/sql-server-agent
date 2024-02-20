@@ -23,7 +23,6 @@ package guestcollector
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"regexp"
 	"time"
 
@@ -56,9 +55,6 @@ type wmiConnectionArgs struct {
 	namespace string
 	query     string
 }
-
-// WindowsCollectionOSFields returns all expected fields in OS collection
-func WindowsCollectionOSFields() []string { return append([]string(nil), defaultOSFields...) }
 
 // NewWindowsCollector initializes and returns new WindowsCollector object.
 func NewWindowsCollector(host, username, password any) *WindowsCollector {
@@ -160,40 +156,6 @@ func NewWindowsCollector(host, username, password any) *WindowsCollector {
 		},
 	}
 	return &c
-}
-
-// MarkUnknownOSFields checks the collected os fields; if nil or missing, then the data is marked as unknown
-func (c *WindowsCollector) MarkUnknownOSFields(details *[]internal.Details) error {
-	if len(*details) != 1 {
-		return fmt.Errorf("CheckOSCollectedMetrics details should have only 1 field for OS collection, got %d", len(*details))
-	}
-	detail := (*details)[0]
-	if detail.Name != "OS" {
-		return fmt.Errorf("CheckOSCollectedMetrics details.name should be collecting for OS, got %s", detail.Name)
-	}
-	if len(detail.Fields) > 1 {
-		return fmt.Errorf("CheckOSCollectedMetrics details.fields should have 1 field in OS collection, got %d", len(detail.Fields))
-	}
-
-	if len(detail.Fields) == 0 {
-		fields := map[string]string{
-			internal.PowerProfileSettingRule:     "unknown",
-			internal.LocalSSDRule:                "unknown",
-			internal.DataDiskAllocationUnitsRule: "unknown",
-		}
-		(*details)[0].Fields = append((*details)[0].Fields, fields)
-		return nil
-	}
-
-	// for os collection, details only has one element and details.Fields only has one element
-	// sql collections is different as there can be multiple details and multiple details.Fields
-	for _, field := range WindowsCollectionOSFields() {
-		_, ok := detail.Fields[0][field]
-		if !ok {
-			(*details)[0].Fields[0][field] = "unknown"
-		}
-	}
-	return nil
 }
 
 // LogicalDiskMediaType generates the logicalDrive : mediaType mappings and add the result to details.

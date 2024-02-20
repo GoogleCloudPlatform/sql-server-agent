@@ -18,6 +18,7 @@ package guestcollector
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
@@ -26,13 +27,49 @@ import (
 // GuestCollector interface.
 type GuestCollector interface {
 	CollectGuestRules(context.Context, time.Duration) internal.Details
-	MarkUnknownOSFields(details *[]internal.Details) error
 }
 
-// allOSFields are all expected fields in OS collection in collection order, for windows and linux.
+// allOSFields are all expected fields in OS collection in collection order.
 // LocalSSDRule needs to be collected before DataDiskAllocatinUnitsRule for linux.
-var defaultOSFields = []string{
+var allOSFields = []string{
 	internal.PowerProfileSettingRule,
 	internal.LocalSSDRule,
 	internal.DataDiskAllocationUnitsRule,
+}
+
+// CollectionOSFields returns all expected fields in OS collection
+func CollectionOSFields() []string { return append([]string(nil), allOSFields...) }
+
+// MarkUnknownOsFields checks the collected os fields; if nil or missing, then the data is marked as unknown
+func MarkUnknownOsFields(details *[]internal.Details) error {
+	if len(*details) != 1 {
+		return fmt.Errorf("CheckOSCollectedMetrics details should have only 1 field for OS collection, got %d", len(*details))
+	}
+	detail := (*details)[0]
+	if detail.Name != "OS" {
+		return fmt.Errorf("CheckOSCollectedMetrics details.name should be collecting for OS, got %s", detail.Name)
+	}
+	if len(detail.Fields) > 1 {
+		return fmt.Errorf("CheckOSCollectedMetrics details.fields should have 1 field in OS collection, got %d", len(detail.Fields))
+	}
+
+	if len(detail.Fields) == 0 {
+		fields := map[string]string{
+			internal.PowerProfileSettingRule:     "unknown",
+			internal.LocalSSDRule:                "unknown",
+			internal.DataDiskAllocationUnitsRule: "unknown",
+		}
+		(*details)[0].Fields = append((*details)[0].Fields, fields)
+		return nil
+	}
+
+	// for os collection, details only has one element and details.Fields only has one element
+	// sql collections is different as there can be multiple details and multiple details.Fields
+	for _, field := range CollectionOSFields() {
+		_, ok := detail.Fields[0][field]
+		if !ok {
+			(*details)[0].Fields[0][field] = "unknown"
+		}
+	}
+	return nil
 }
