@@ -54,8 +54,8 @@ func TestCollectMasterRules(t *testing.T) {
 					Fields: func(fields [][]any) []map[string]string {
 						return []map[string]string{
 							map[string]string{
-								"col1": internal.HandleNilString[string](fields[0][0]),
-								"col2": internal.HandleNilString[string](fields[0][1]),
+								"col1": internal.HandleNilString(fields[0][0]),
+								"col2": internal.HandleNilString(fields[0][1]),
 							},
 						}
 					},

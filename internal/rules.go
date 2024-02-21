@@ -61,14 +61,14 @@ var MasterRules = []MasterRuleStruct{
 			res := []map[string]string{}
 			for _, f := range fields {
 				res = append(res, map[string]string{
-					"db_name":           HandleNilString[string](f[1]),
-					"filetype":          HandleNilInt64[int64](f[0]),
-					"physical_name":     HandleNilString[string](f[2]),
+					"db_name":           HandleNilString(f[1]),
+					"filetype":          HandleNilInt(f[0]),
+					"physical_name":     HandleNilString(f[2]),
 					"physical_drive":    "unknown",
-					"state":             HandleNilInt64[int64](f[3]),
-					"size":              HandleNilInt64[int64](f[4]),
-					"growth":            HandleNilInt64[int64](f[5]),
-					"is_percent_growth": HandleNilBool[bool](f[6]),
+					"state":             HandleNilInt(f[3]),
+					"size":              HandleNilInt(f[4]),
+					"growth":            HandleNilInt(f[5]),
+					"is_percent_growth": HandleNilBool(f[6]),
 				})
 			}
 			return res
@@ -83,7 +83,7 @@ var MasterRules = []MasterRuleStruct{
 			res := []map[string]string{}
 			for _, f := range fields {
 				res = append(res, map[string]string{
-					"maxDegreeOfParallelism": HandleNilInt64[int64](f[0]),
+					"maxDegreeOfParallelism": HandleNilInt(f[0]),
 				})
 			}
 			return res
@@ -117,11 +117,11 @@ var MasterRules = []MasterRuleStruct{
 			res := []map[string]string{}
 			for _, f := range fields {
 				res = append(res, map[string]string{
-					"db_name":                HandleNilString[string](f[0]),
-					"backup_age_in_hours":    HandleNilInt64[int64](f[1]),
-					"backup_size":            HandleNilInt64[int64](f[2]),
-					"compressed_backup_size": HandleNilInt64[int64](f[3]),
-					"auto_growth":            HandleNilInt64[int64](f[4]),
+					"db_name":                HandleNilString(f[0]),
+					"backup_age_in_hours":    HandleNilInt(f[1]),
+					"backup_size":            HandleNilInt(f[2]),
+					"compressed_backup_size": HandleNilInt(f[3]),
+					"auto_growth":            HandleNilInt(f[4]),
 				})
 			}
 			return res
@@ -140,11 +140,11 @@ var MasterRules = []MasterRuleStruct{
 			res := []map[string]string{}
 			for _, f := range fields {
 				res = append(res, map[string]string{
-					"db_name":               HandleNilString[string](f[0]),
-					"vlf_count":             HandleNilInt64[int64](f[1]),
-					"vlf_size_in_mb":        HandleNilFloat64[float64](f[2]),
-					"active_vlf_count":      HandleNilInt64[int64](f[3]),
-					"active_vlf_size_in_mb": HandleNilFloat64[float64](f[4]),
+					"db_name":               HandleNilString(f[0]),
+					"vlf_count":             HandleNilInt(f[1]),
+					"vlf_size_in_mb":        HandleNilFloat64(f[2]),
+					"active_vlf_count":      HandleNilInt(f[3]),
+					"active_vlf_size_in_mb": HandleNilFloat64(f[4]),
 				})
 			}
 			return res
@@ -158,9 +158,9 @@ var MasterRules = []MasterRuleStruct{
 			res := []map[string]string{}
 			for _, f := range fields {
 				res = append(res, map[string]string{
-					"path":       HandleNilString[string](f[0]),
-					"state":      HandleNilInt64[int64](f[1]),
-					"size_in_kb": HandleNilInt64[int64](f[2]),
+					"path":       HandleNilString(f[0]),
+					"state":      HandleNilInt(f[1]),
+					"size_in_kb": HandleNilInt(f[2]),
 				})
 			}
 			return res
@@ -175,9 +175,9 @@ var MasterRules = []MasterRuleStruct{
 			res := []map[string]string{}
 			for _, f := range fields {
 				res = append(res, map[string]string{
-					"name":         HandleNilString[string](f[0]),
-					"value":        HandleNilInt64[int64](f[1]),
-					"value_in_use": HandleNilInt64[int64](f[2]),
+					"name":         HandleNilString(f[0]),
+					"value":        HandleNilInt(f[1]),
+					"value_in_use": HandleNilInt(f[2]),
 				})
 			}
 			return res
@@ -201,7 +201,7 @@ var MasterRules = []MasterRuleStruct{
 			res := []map[string]string{}
 			for _, f := range fields {
 				res = append(res, map[string]string{
-					"found_index_fragmentation": HandleNilInt64[int64](f[0]),
+					"found_index_fragmentation": HandleNilInt(f[0]),
 				})
 			}
 			return res
@@ -216,7 +216,7 @@ var MasterRules = []MasterRuleStruct{
 			res := []map[string]string{}
 			for _, f := range fields {
 				res = append(res, map[string]string{
-					"numOfPartitionsWithCompressionEnabled": HandleNilInt64[int64](f[0]),
+					"numOfPartitionsWithCompressionEnabled": HandleNilInt(f[0]),
 				})
 			}
 			return res
@@ -241,16 +241,16 @@ var MasterRules = []MasterRuleStruct{
 			for _, f := range fields {
 				res = append(res, map[string]string{
 					"os":                 runtime.GOOS,
-					"product_version":    HandleNilString[string](f[0]),
-					"product_level":      HandleNilString[string](f[1]),
-					"edition":            HandleNilString[string](f[2]),
-					"cpu_count":          HandleNilInt64[int64](f[3]),
-					"hyperthread_ratio":  HandleNilInt64[int64](f[4]),
-					"physical_memory_kb": HandleNilInt64[int64](f[5]),
-					"virtual_memory_kb":  HandleNilInt64[int64](f[6]),
-					"socket_count":       HandleNilInt64[int64](f[7]),
-					"cores_per_socket":   HandleNilInt64[int64](f[8]),
-					"numa_node_count":    HandleNilInt64[int64](f[9]),
+					"product_version":    HandleNilString(f[0]),
+					"product_level":      HandleNilString(f[1]),
+					"edition":            HandleNilString(f[2]),
+					"cpu_count":          HandleNilInt(f[3]),
+					"hyperthread_ratio":  HandleNilInt(f[4]),
+					"physical_memory_kb": HandleNilInt(f[5]),
+					"virtual_memory_kb":  HandleNilInt(f[6]),
+					"socket_count":       HandleNilInt(f[7]),
+					"cores_per_socket":   HandleNilInt(f[8]),
+					"numa_node_count":    HandleNilInt(f[9]),
 				})
 			}
 			return res
@@ -283,7 +283,7 @@ var MasterRules = []MasterRuleStruct{
 			res := []map[string]string{}
 			for _, f := range fields {
 				res = append(res, map[string]string{
-					"max_backup_age": HandleNilInt64[int64](f[0]),
+					"max_backup_age": HandleNilInt(f[0]),
 				})
 			}
 			return res

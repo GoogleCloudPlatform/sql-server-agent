@@ -87,7 +87,7 @@ func TestHandleNilFloat64(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := HandleNilFloat64[float64](tc.input)
+			actual := HandleNilFloat64(tc.input)
 			if tc.expected != actual {
 				t.Errorf("handleNilFloat64(%v) = %v, want: %v", tc.input, actual, tc.expected)
 			}
@@ -95,7 +95,7 @@ func TestHandleNilFloat64(t *testing.T) {
 	}
 }
 
-func TestHandleNilInt64(t *testing.T) {
+func TestHandleNilInt(t *testing.T) {
 	testcases := []struct {
 		name     string
 		input    any
@@ -116,11 +116,16 @@ func TestHandleNilInt64(t *testing.T) {
 			input:    nil,
 			expected: "unknown",
 		},
+		{
+			name:     "return unknown for non-int input",
+			input:    "test",
+			expected: "unknown",
+		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := HandleNilInt64[int64](tc.input)
+			actual := HandleNilInt(tc.input)
 			if tc.expected != actual {
 				t.Errorf("handleNilInt64(%v) = %v, want: %v", tc.input, actual, tc.expected)
 			}
@@ -153,7 +158,7 @@ func TestHandleNilString(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := HandleNilString[string](tc.input)
+			actual := HandleNilString(tc.input)
 			if tc.expected != actual {
 				t.Errorf("handleNil(%v) = %v, want: %v", tc.input, actual, tc.expected)
 			}
@@ -186,7 +191,7 @@ func TestHandleNilBoolean(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := HandleNilBool[bool](tc.input)
+			actual := HandleNilBool(tc.input)
 			if tc.expected != actual {
 				t.Errorf("handleNil(%v) = %v, want: %v", tc.input, actual, tc.expected)
 			}
@@ -383,6 +388,37 @@ func TestGetPhysicalDriveFromPath(t *testing.T) {
 		got := GetPhysicalDriveFromPath(ctx, tc.path, tc.windows, tc.exec)
 		if got != tc.want {
 			t.Errorf("GetPhysicalDriveFromPath(%v, %v) = %v, want: %v", tc.path, tc.windows, got, tc.want)
+		}
+	}
+}
+
+func TestIntegerToString(t *testing.T) {
+	tests := []struct {
+		num     any
+		want    string
+		wantErr bool
+	}{
+		{num: int(1), want: "1"},
+		{num: int8(1), want: "1"},
+		{num: int16(1), want: "1"},
+		{num: int32(1), want: "1"},
+		{num: int64(1), want: "1"},
+		{num: uint(1), want: "1"},
+		{num: uint8(1), want: "1"},
+		{num: uint16(1), want: "1"},
+		{num: uint32(1), want: "1"},
+		{num: uint64(1), want: "1"},
+		{num: []uint8{49}, want: "1"},
+		{num: "test", wantErr: true},
+	}
+	for _, tc := range tests {
+		got, err := integerToString(tc.num)
+		if gotErr := err != nil; gotErr != tc.wantErr {
+			t.Errorf("integerToString(%v) returned an unexpected error: %v, want error: %v", tc.num, err, tc.wantErr)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("integerToString(%v) = %v, want: %v", tc.num, got, tc.want)
 		}
 	}
 }

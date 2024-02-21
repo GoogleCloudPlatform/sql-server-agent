@@ -69,25 +69,33 @@ func convertHexStringToBoolean(value string) (bool, error) {
 
 // HandleNilString converts generic string to the desired string output,
 // or returns 'unknown' if desired type if nil.
-func HandleNilString[T string](data any) string {
+func HandleNilString(data any) string {
 	if data == nil {
 		return "unknown"
 	}
-	return fmt.Sprintf("%v", data.(T))
+	return fmt.Sprintf("%v", data.(string))
 }
 
-// HandleNilInt64 converts generic int64 to desired string output,
+// HandleNilInt converts generic int64 to desired string output,
 // or returns 'unknown' if desired type if nil.
-func HandleNilInt64[T int64](data any) string {
+func HandleNilInt(data any) string {
 	if data == nil {
 		return "unknown"
 	}
-	return fmt.Sprintf("%d", data.(int64))
+	// The passed in data might not be int64 so we need to handle the conversion from
+	// all possible integer types to string.
+	res, err := integerToString(data)
+	if err != nil {
+		log.Logger.Error(err)
+		return "unknown"
+	}
+
+	return res
 }
 
 // HandleNilFloat64 converts generic float64 to desired string output,
 // or returns 'unknown' if desired type if nil.
-func HandleNilFloat64[T float64](data any) string {
+func HandleNilFloat64(data any) string {
 	if data == nil {
 		return "unknown"
 	}
@@ -96,7 +104,7 @@ func HandleNilFloat64[T float64](data any) string {
 
 // HandleNilBool converts generic bool to desired string output,
 // or returns 'unknown' if desired type if nil.
-func HandleNilBool[T bool](data any) string {
+func HandleNilBool(data any) string {
 	if data == nil {
 		return "unknown"
 	}
@@ -185,4 +193,34 @@ func GetPhysicalDriveFromPath(ctx context.Context, path string, windows bool, ex
 		return "unknown"
 	}
 	return physicalDrive
+}
+
+// integerToString converts any valid integer type to a string representation.
+func integerToString(num any) (string, error) {
+	switch v := num.(type) {
+	case int:
+		return strconv.Itoa(v), nil
+	case int8:
+		return strconv.FormatInt(int64(v), 10), nil
+	case int16:
+		return strconv.FormatInt(int64(v), 10), nil
+	case int32:
+		return strconv.FormatInt(int64(v), 10), nil
+	case int64:
+		return strconv.FormatInt(v, 10), nil
+	case uint:
+		return strconv.FormatUint(uint64(v), 10), nil
+	case uint8:
+		return strconv.FormatUint(uint64(v), 10), nil
+	case uint16:
+		return strconv.FormatUint(uint64(v), 10), nil
+	case uint32:
+		return strconv.FormatUint(uint64(v), 10), nil
+	case uint64:
+		return strconv.FormatUint(v, 10), nil
+	case []uint8:
+		return string([]uint8(v)), nil
+	default:
+		return "", fmt.Errorf("unsupported number type: %T", num)
+	}
 }
