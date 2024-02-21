@@ -432,12 +432,12 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 
 // TestCheckLinusOsReturnedCount compares the os returned fields for linux_guestcollector with the returned fields for OSCollectorResultFields
 func TestCheckLinusOsReturnedCount(t *testing.T) {
-	guestCollectorCount := len(allOSFields)
+	guestCollectorCount := len(LinuxCollectionOSFields())
 	guestCollectorLinuxCount := 0
 
 	testLC := NewLinuxCollector(nil, "", "", "", false, 22)
 
-	for _, field := range allOSFields {
+	for _, field := range LinuxCollectionOSFields() {
 		_, ok := testLC.guestRuleCommandMap[field]
 		if ok {
 			guestCollectorLinuxCount++
@@ -482,8 +482,8 @@ func TestForLinux(t *testing.T) {
 			if err != nil {
 				t.Errorf("forLinux(\"sda1\") returned unexpected error: %v", err)
 			}
-			if diff := cmp.Diff(want, got); diff != "" {
-				t.Errorf("forLinux(\"sda1\") returned unexpected diff (-want +got):\n%s", diff)
+			if diff := cmp.Diff(got, want); diff != "" {
+				t.Errorf("forLinux(\"sda1\") returned unexpected diff (-got +want):\n%s", diff)
 			}
 		})
 	}
@@ -882,6 +882,162 @@ func TestFindPowerProfile_BadInput(t *testing.T) {
 			_, err := findPowerProfile(tc.powerProfileFull)
 			if err == nil {
 				t.Errorf("findPowerProfile(%v) returned nil error, want error", tc.powerProfileFull)
+			}
+		})
+	}
+}
+
+func TestCheckLinuxOSCollectedMetrics(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []internal.Details
+		want  []internal.Details
+	}{
+		{
+			name: "success for empty input",
+			input: []internal.Details{
+				internal.Details{Name: "OS"},
+			},
+			want: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule:     "unknown",
+							internal.LocalSSDRule:                "unknown",
+							internal.DataDiskAllocationUnitsRule: "unknown",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "success for half collected input",
+			input: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule: "test",
+						},
+					},
+				},
+			},
+			want: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule:     "test",
+							internal.LocalSSDRule:                "unknown",
+							internal.DataDiskAllocationUnitsRule: "unknown",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "success with additional field",
+			input: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							"testing": "any output",
+						},
+					},
+				},
+			},
+			want: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule:     "unknown",
+							internal.LocalSSDRule:                "unknown",
+							internal.DataDiskAllocationUnitsRule: "unknown",
+							"testing":                            "any output",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testLC := NewLinuxCollector(nil, "", "", "", false, 22)
+			err := testLC.MarkUnknownOSFields(&tc.input)
+			if err != nil {
+				t.Fatalf("TestCheckOSCollectedMetrics(%q) unexpected error: %v", tc.input, err)
+			}
+			if diff := cmp.Diff(tc.input, tc.want); diff != "" {
+				t.Errorf("TestCheckOSCollectedMetrics(%q) returned diff (-got +want):\n%s", tc.input, diff)
+			}
+		})
+	}
+}
+
+func TestCheckLinuxOSCollectedMetrics_BadInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []internal.Details
+	}{
+		{
+			name: "fail for incorrect OS name",
+			input: []internal.Details{
+				internal.Details{
+					Name: "NOT OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule: "any output",
+							internal.LocalSSDRule:            "any output",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "fail for too many details",
+			input: []internal.Details{
+				internal.Details{
+					Name:   "OS",
+					Fields: []map[string]string{},
+				},
+				internal.Details{
+					Name:   "OS",
+					Fields: []map[string]string{},
+				},
+			},
+		},
+		{
+			name:  "fail for no details",
+			input: []internal.Details{},
+		},
+		{
+			name: "fail for too many fields",
+			input: []internal.Details{
+				internal.Details{
+					Name: "OS",
+					Fields: []map[string]string{
+						map[string]string{
+							internal.PowerProfileSettingRule:     "any output",
+							internal.LocalSSDRule:                "any output",
+							internal.DataDiskAllocationUnitsRule: "any output",
+						},
+						map[string]string{},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testLC := NewLinuxCollector(nil, "", "", "", false, 22)
+			err := testLC.MarkUnknownOSFields(&tc.input)
+			if err == nil {
+				t.Fatalf("TestCheckOSCollectedMetrics(%q) expected error", tc.input)
 			}
 		})
 	}

@@ -97,6 +97,11 @@ var lshwFieldsToParse = []string{
 
 func lshwFields() []string { return lshwFieldsToParse }
 
+// LinuxCollectionOSFields returns all expected fields in OS collection
+func LinuxCollectionOSFields() []string {
+	return append(defaultOSFields, linuxAdditionalOsFields...)
+}
+
 // NewLinuxCollector initializes and returns a new LinuxCollector object.
 func NewLinuxCollector(disks []*instanceinfo.Disks, ipAddr, username, privateKeyPath string, isRemote bool, port int32) *LinuxCollector {
 	c := LinuxCollector{
@@ -285,6 +290,40 @@ func (c *LinuxCollector) setUpRegex() {
 	}
 }
 
+// MarkUnknownOSFields checks the collected os fields; if nil or missing, then the data is marked as unknown
+func (c *LinuxCollector) MarkUnknownOSFields(details *[]internal.Details) error {
+	if len(*details) != 1 {
+		return fmt.Errorf("CheckOSCollectedMetrics details should have only 1 field for OS collection, got %d", len(*details))
+	}
+	detail := (*details)[0]
+	if detail.Name != "OS" {
+		return fmt.Errorf("CheckOSCollectedMetrics details.name should be collecting for OS, got %s", detail.Name)
+	}
+	if len(detail.Fields) > 1 {
+		return fmt.Errorf("CheckOSCollectedMetrics details.fields should have 1 field in OS collection, got %d", len(detail.Fields))
+	}
+
+	if len(detail.Fields) == 0 {
+		fields := map[string]string{
+			internal.PowerProfileSettingRule:     "unknown",
+			internal.LocalSSDRule:                "unknown",
+			internal.DataDiskAllocationUnitsRule: "unknown",
+		}
+		(*details)[0].Fields = append((*details)[0].Fields, fields)
+		return nil
+	}
+
+	// for os collection, details only has one element and details.Fields only has one element
+	// sql collections is different as there can be multiple details and multiple details.Fields
+	for _, field := range LinuxCollectionOSFields() {
+		_, ok := detail.Fields[0][field]
+		if !ok {
+			(*details)[0].Fields[0][field] = "unknown"
+		}
+	}
+	return nil
+}
+
 // DiskToDiskType maps physical drive to disktype. EX: /dev/sda to local_ssd
 func DiskToDiskType(fields map[string]string, disks []*instanceinfo.Disks) {
 	logicalToTypeMap := map[string]string{}
@@ -439,7 +478,7 @@ func (c *LinuxCollector) CollectGuestRules(ctx context.Context, timeout time.Dur
 		}
 	}
 
-	for _, rule := range CollectionOSFields() {
+	for _, rule := range LinuxCollectionOSFields() {
 		exe := c.guestRuleCommandMap[rule]
 		func() {
 			ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)

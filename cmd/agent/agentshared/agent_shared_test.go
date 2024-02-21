@@ -56,6 +56,10 @@ func (c *mockGuestOsCollector) CollectGuestRules(ctx context.Context, timeout ti
 	}
 }
 
+func (c *mockGuestOsCollector) MarkUnknownOSFields(details *[]internal.Details) error {
+	return nil
+}
+
 func TestCheckAgentStatus(t *testing.T) {
 	testcases := []struct {
 		name        string
