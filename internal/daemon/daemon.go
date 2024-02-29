@@ -18,11 +18,15 @@ limitations under the License.
 package daemon
 
 import (
+	"time"
+
 	"github.com/kardianos/service"
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 )
 
 type program struct {
+	statusLogger  agentstatus.AgentStatus
 	osCollection  func()
 	sqlCollection func()
 }
@@ -34,17 +38,40 @@ func (p *program) Start(s service.Service) error {
 	if p.sqlCollection != nil {
 		go p.sqlCollection()
 	}
+
+	go func() {
+		// Wait for 5 minutes in case the service was killed after it starts.
+		// The agent logs the status as Running after the first 5 mins wait. Then it logs the status
+		// in every hour.
+		time.Sleep(5 * time.Minute)
+		for {
+			p.statusLogger.Running()
+			time.Sleep(time.Hour)
+		}
+	}()
 	return nil
 }
 
 func (p *program) Stop(s service.Service) error {
 	log.Logger.Info("Service ends.")
+	p.statusLogger.Stopped()
+	return nil
+}
+
+func (p *program) Install(s service.Service) error {
+	log.Logger.Info("Service installs.")
+	p.statusLogger.Installed()
+	return nil
+}
+
+func (p *program) Uninstall(s service.Service) error {
+	log.Logger.Info("Service uninstalls.")
+	p.statusLogger.Uninstalled()
 	return nil
 }
 
 // CreateConfig creates and returns Config pointer for the service.
 func CreateConfig(name, displayName, description string) *service.Config {
-	// https://github.com/kardianos/service/issues/166#issuecomment-478798337,
 	serviceArg := []string{"--action=run"}
 
 	return &service.Config{
@@ -56,8 +83,9 @@ func CreateConfig(name, displayName, description string) *service.Config {
 }
 
 // CreateService initializes and returns service, or error if any.
-func CreateService(osCollection func(), sqlCollection func(), sc *service.Config) (service.Service, error) {
+func CreateService(osCollection func(), sqlCollection func(), sc *service.Config, statusLogger agentstatus.AgentStatus) (service.Service, error) {
 	prg := &program{
+		statusLogger:  statusLogger,
 		osCollection:  osCollection,
 		sqlCollection: sqlCollection,
 	}
