@@ -17,10 +17,10 @@ replace github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentcon
 require (
   cloud.google.com/go/secretmanager v1.11.1
   github.com/DATA-DOG/go-sqlmock v1.5.0
-  github.com/GoogleCloudPlatform/sapagent v1.5.2-0.20231116191552-2eaf473ac348
+  github.com/GoogleCloudPlatform/sapagent v0.0.0-20240304141225-7c9b90912309
   github.com/StackExchange/wmi v1.2.1
   github.com/cenkalti/backoff/v4 v4.2.1
-  github.com/google/go-cmp v0.5.9
+  github.com/google/go-cmp v0.6.0
   github.com/kardianos/service v1.2.2
   github.com/microsoft/go-mssqldb v1.4.0
   go.uber.org/zap v1.25.0
