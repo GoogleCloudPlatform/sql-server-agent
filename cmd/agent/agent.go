@@ -247,7 +247,7 @@ func Retry(run func() bool, maxRetries int32, interval time.Duration) error {
 func CollectionService(p string, collection func(cfg *configpb.Configuration, onetime bool) error, collectionType CollectionType) {
 	for {
 		cfg, err := LoadConfiguration(p)
-		if err != nil {
+		if cfg == nil {
 			log.Logger.Errorw("Failed to load configuration", "error", err)
 			time.Sleep(time.Duration(time.Hour))
 			continue

@@ -59,10 +59,13 @@ func main() {
 		log.Logger.Fatalw("Failed to get the path of executable", "error", err)
 	}
 	cfg, err := agent.LoadConfiguration(p)
-	if err != nil {
+	if cfg == nil {
 		log.Logger.Fatalw("Failed to load configuration", "error", err)
 	}
 
+	if err != nil {
+		log.Logger.Errorw("Failed to load configuration. Using default configurations", "error", err)
+	}
 	agent.LoggingSetup(ctx, logPrefix, cfg)
 	// onetime collection
 	if flags.Onetime {

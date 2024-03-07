@@ -51,8 +51,12 @@ func main() {
 	agent.LoggingSetupDefault(ctx, logPrefix)
 
 	cfg, err := agent.LoadConfiguration(configPath)
-	if err != nil {
+	if cfg == nil {
 		log.Logger.Fatalw("Failed to load configuration", "error", err)
+	}
+
+	if err != nil {
+		log.Logger.Errorw("Failed to load configuration. Using default configurations", "error", err)
 	}
 	agent.LoggingSetup(ctx, logPrefix, cfg)
 	// onetime collection

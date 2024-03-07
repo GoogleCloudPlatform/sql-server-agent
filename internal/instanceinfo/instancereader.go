@@ -19,10 +19,10 @@ package instanceinfo
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	compute "google.golang.org/api/compute/v1"
-	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
 )
 
@@ -57,12 +57,11 @@ func New(gceService gceInterface) *Reader {
 }
 
 // AllDisks returns all possible disks with data from compute instance call
+// Returns nil with error if the service account is missing Compute Viewer IAM role.
 func (r *Reader) AllDisks(ctx context.Context, projectID, zone, instanceID string) ([]*Disks, error) {
 	instance, err := r.gceService.GetInstance(projectID, zone, instanceID)
 	if err != nil {
-		log.Logger.Errorw("Could not get instance info from compute API, Enable the Compute Viewer IAM role for the Service Account", "project",
-			projectID, "zone", zone, "instanceid", instanceID)
-		return nil, err
+		return nil, fmt.Errorf("missing Compute Viewer IAM role for the Service Account. project %v, zone %v, instanceId %v", projectID, zone, instanceID)
 	}
 	allDisks := make([]*Disks, 0)
 	for _, disks := range instance.Disks {

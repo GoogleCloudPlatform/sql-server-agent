@@ -96,6 +96,7 @@ func TestLoadConfiguration(t *testing.T) {
 				MaxRetries:               5,
 				RetryIntervalInSeconds:   3600,
 			},
+			wantErr: true,
 		},
 	}
 	for _, tc := range testcases {

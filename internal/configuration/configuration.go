@@ -46,13 +46,12 @@ type GuestConfig struct {
 }
 
 // LoadConfiguration loads configuration from config file.
+// Returns default configurations with error if reading configuration file has an error.
+// Returns nil with error if the configuration file is in invalid format.
 func LoadConfiguration(p string) (*configpb.Configuration, error) {
 	// Read config file from file system.
 	b, err := os.ReadFile(filepath.Join(filepath.Dir(p), "configuration.json"))
 	if err != nil {
-		log.Logger.Errorw("Failed to load the configuration file.",
-			"configurationFilePath", p, "error", err)
-
 		return &configpb.Configuration{
 			CollectionConfiguration: &configpb.CollectionConfiguration{
 				CollectGuestOsMetrics:                     true,
@@ -76,7 +75,7 @@ func LoadConfiguration(p string) (*configpb.Configuration, error) {
 			CollectionTimeoutSeconds: 10,
 			MaxRetries:               5,
 			RetryIntervalInSeconds:   3600,
-		}, nil
+		}, fmt.Errorf("failed to load the configuration file. filepath: %v, error: %v", p, err)
 	}
 	cfg := configpb.Configuration{}
 	if err := protojson.Unmarshal(b, &cfg); err != nil {
