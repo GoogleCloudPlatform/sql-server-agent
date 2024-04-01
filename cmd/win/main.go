@@ -30,6 +30,7 @@ import (
 	_ "github.com/microsoft/go-mssqldb"
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/cmd/agent"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/daemon"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/guestcollector"
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
@@ -62,6 +63,9 @@ func main() {
 	if cfg == nil {
 		log.Logger.Fatalw("Failed to load configuration", "error", err)
 	}
+	if err != nil {
+		log.Logger.Errorw("Failed to load configuration", "error", err)
+	}
 
 	if err != nil {
 		log.Logger.Errorw("Failed to load configuration. Using default configurations", "error", err)
@@ -78,6 +82,8 @@ func main() {
 		return
 	}
 
+	agent.UsageMetricsLoggerInit(cfg.GetLogUsage())
+
 	osCollectionFunc := func(cfg *configpb.Configuration, onetime bool) error {
 		return osCollection(ctx, p, logPrefix, cfg, onetime)
 	}
@@ -88,7 +94,8 @@ func main() {
 	s, err := daemon.CreateService(
 		func() { agent.CollectionService(p, osCollectionFunc, agent.OS) },
 		func() { agent.CollectionService(p, sqlCollectionFunc, agent.SQL) },
-		daemon.CreateConfig(agent.ServiceName, agent.ServiceDisplayName, agent.Description))
+		daemon.CreateConfig(agent.ServiceName, agent.ServiceDisplayName, agent.Description),
+		agent.UsageMetricsLogger)
 
 	if err != nil {
 		log.Logger.Fatalw("Failed to create the service", "error", err)
@@ -125,6 +132,7 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 		guestCfg := agent.GuestConfigFromCredential(credentialCfg)
 		if err := agent.ValidateCredCfgGuest(cfg.GetRemoteCollection(), !guestCfg.LinuxRemote, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {
 			log.Logger.Errorw("Invalid credential configuration", "error", err)
+			agent.UsageMetricsLogger.Error(agentstatus.InvalidConfigurationsError)
 			if !cfg.GetRemoteCollection() {
 				break
 			}
@@ -146,6 +154,7 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 				pswd, err := agent.SecretValue(ctx, sourceInstanceProps.ProjectID, guestCfg.GuestSecretName)
 				if err != nil {
 					log.Logger.Errorw("Collection failed", "target", guestCfg.ServerName, "error", fmt.Errorf("failed to get secret value: %v", err))
+					agent.UsageMetricsLogger.Error(agentstatus.SecretValueError)
 					if !cfg.GetRemoteCollection() {
 						break
 					}
@@ -218,17 +227,20 @@ func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Co
 		for _, sqlCfg := range agent.SQLConfigFromCredential(credentialCfg) {
 			if err := agent.ValidateCredCfgSQL(cfg.GetRemoteCollection(), !guestCfg.LinuxRemote, sqlCfg, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {
 				log.Logger.Errorw("Invalid credential configuration", "error", err)
+				agent.UsageMetricsLogger.Error(agentstatus.InvalidConfigurationsError)
 				continue
 			}
 			pswd, err := agent.SecretValue(ctx, sourceInstanceProps.ProjectID, sqlCfg.SecretName)
 			if err != nil {
 				log.Logger.Errorw("Failed to get secret value", "error", err)
+				agent.UsageMetricsLogger.Error(agentstatus.SecretValueError)
 				continue
 			}
 			conn := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;", sqlCfg.Host, sqlCfg.Username, pswd, sqlCfg.PortNumber)
 			details, err := agent.RunSQLCollection(ctx, conn, timeout, !guestCfg.LinuxRemote)
 			if err != nil {
 				log.Logger.Errorw("Failed to run sql collection", "error", err)
+				agent.UsageMetricsLogger.Error(agentstatus.SQLCollectionFailure)
 				continue
 			}
 

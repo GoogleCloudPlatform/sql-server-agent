@@ -26,12 +26,14 @@ import (
 	"time"
 
 	backoff "github.com/cenkalti/backoff/v4"
+	"github.com/jonboulle/clockwork"
 	"github.com/GoogleCloudPlatform/sapagent/shared/gce"
 	"github.com/GoogleCloudPlatform/sapagent/shared/gce/metadataserver"
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/cmd/agent/agentshared"
 	"github.com/GoogleCloudPlatform/sql-server-agent/cmd/agent/flags"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/activation"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/configuration"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/guestcollector"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/instanceinfo"
@@ -70,11 +72,24 @@ const (
 
 // InstanceProperties represents properties of instance.
 type InstanceProperties struct {
-	Name       string
-	Instance   string
-	InstanceID string
-	ProjectID  string
-	Zone       string
+	Name          string
+	Instance      string
+	InstanceID    string
+	ProjectID     string
+	ProjectNumber string
+	Zone          string
+	Image         string
+}
+
+// UsageMetricsLogger logs usage metrics.
+var UsageMetricsLogger agentstatus.AgentStatus
+
+// UsageMetricsLoggerInit initializes and returns usage metrics logger.
+func UsageMetricsLoggerInit(logUsage bool) {
+	ap := agentstatus.NewAgentProperties(ServiceName, internal.AgentVersion, logUsage)
+	sip := SourceInstanceProperties()
+	cp := agentstatus.NewCloudProperties(sip.ProjectID, sip.Zone, sip.Instance, sip.ProjectNumber, sip.Image)
+	UsageMetricsLogger = agentstatus.NewUsageMetricsLogger(ap, cp, clockwork.NewRealClock(), []string{})
 }
 
 // SourceInstanceProperties returns properties of the instance the agent is running on.
@@ -83,11 +98,13 @@ func SourceInstanceProperties() InstanceProperties {
 	location := string(properties.GetZone()[0:strings.LastIndex(properties.GetZone(), "-")])
 	name := fmt.Sprintf("projects/%s/locations/%s", properties.GetProjectId(), location)
 	return InstanceProperties{
-		Name:       name,
-		ProjectID:  properties.GetProjectId(),
-		InstanceID: properties.GetInstanceId(),
-		Instance:   properties.GetInstanceName(),
-		Zone:       properties.GetZone(),
+		Name:          name,
+		ProjectID:     properties.GetProjectId(),
+		ProjectNumber: properties.GetNumericProjectId(),
+		InstanceID:    properties.GetInstanceId(),
+		Instance:      properties.GetInstanceName(),
+		Zone:          properties.GetZone(),
+		Image:         properties.GetImage(),
 	}
 }
 
@@ -249,12 +266,18 @@ func CollectionService(p string, collection func(cfg *configpb.Configuration, on
 		cfg, err := LoadConfiguration(p)
 		if cfg == nil {
 			log.Logger.Errorw("Failed to load configuration", "error", err)
+			UsageMetricsLogger.Error(agentstatus.ProtoJSONUnmarshalError)
 			time.Sleep(time.Duration(time.Hour))
 			continue
 		}
 		// set onetime to false for running collection as service
 		if err := collection(cfg, false); err != nil {
 			log.Logger.Errorw("Failed to run collection", "collection type", collectionType, "error", err)
+			if collectionType == OS {
+				UsageMetricsLogger.Error(agentstatus.GuestCollectionFailure)
+			} else {
+				UsageMetricsLogger.Error(agentstatus.SQLCollectionFailure)
+			}
 			time.Sleep(time.Duration(time.Hour))
 			continue
 		}
@@ -275,10 +298,12 @@ func AddPhysicalDriveRemoteLinux(details []internal.Details, cred *configuration
 	r := remote.NewRemote(ip, user, port)
 	if err := r.SetupKeys(cred.LinuxSSHPrivateKeyPath); err != nil {
 		log.Logger.Errorw("Failed to setup keys.", "error", err)
+		UsageMetricsLogger.Error(agentstatus.SetupSSHKeysError)
 		return
 	}
 	if err := r.CreateClient(); err != nil {
 		log.Logger.Errorw("Failed to create client.", "error", err)
+		UsageMetricsLogger.Error(agentstatus.SSHDialError)
 		return
 	}
 	for _, detail := range details {

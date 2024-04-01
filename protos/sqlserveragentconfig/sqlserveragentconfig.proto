@@ -38,6 +38,8 @@ message Configuration {
   bool remote_collection = 7;
   // default log_to_cloud is false
   bool log_to_cloud = 8;
+  // default log_usage is false
+  bool log_usage = 9;
 }
 
 message CollectionConfiguration {

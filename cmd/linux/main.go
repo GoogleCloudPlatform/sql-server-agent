@@ -29,6 +29,7 @@ import (
 	_ "github.com/microsoft/go-mssqldb"
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/cmd/agent"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/daemon"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/guestcollector"
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
@@ -70,6 +71,8 @@ func main() {
 		return
 	}
 
+	agent.UsageMetricsLoggerInit(cfg.GetLogUsage())
+
 	osCollectionFunc := func(cfg *configpb.Configuration, onetime bool) error {
 		return osCollection(ctx, tmpPath, logPrefix, cfg, onetime)
 	}
@@ -80,7 +83,8 @@ func main() {
 	s, err := daemon.CreateService(
 		func() { agent.CollectionService(configPath, osCollectionFunc, agent.OS) },
 		func() { agent.CollectionService(configPath, sqlCollectionFunc, agent.SQL) },
-		daemon.CreateConfig(agent.ServiceName, agent.ServiceDisplayName, agent.Description))
+		daemon.CreateConfig(agent.ServiceName, agent.ServiceDisplayName, agent.Description),
+		agent.UsageMetricsLogger)
 
 	if err != nil {
 		log.Logger.Fatalw("Failed to create the service", "error", err)
@@ -177,11 +181,13 @@ func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Co
 		for _, sqlCfg := range agent.SQLConfigFromCredential(credentialCfg) {
 			if err := agent.ValidateCredCfgSQL(false, !guestCfg.LinuxRemote, sqlCfg, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {
 				log.Logger.Errorw("Invalid credential configuration", "error", err)
+				agent.UsageMetricsLogger.Error(agentstatus.InvalidConfigurationsError)
 				continue
 			}
 			pswd, err := agent.SecretValue(ctx, sourceInstanceProps.ProjectID, sqlCfg.SecretName)
 			if err != nil {
 				log.Logger.Errorw("Failed to get secret value", "error", err)
+				agent.UsageMetricsLogger.Error(agentstatus.SecretValueError)
 				continue
 			}
 			conn := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;", sqlCfg.Host, sqlCfg.Username, pswd, sqlCfg.PortNumber)
@@ -189,6 +195,7 @@ func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Co
 			details, err := agent.RunSQLCollection(ctx, conn, timeout, false)
 			if err != nil {
 				log.Logger.Errorw("Failed to run sql collection", "error", err)
+				agent.UsageMetricsLogger.Error(agentstatus.SQLCollectionFailure)
 				continue
 			}
 			for _, detail := range details {

@@ -61,7 +61,7 @@ func (wlm *WLM) UpdateRequest(writeInsightRequest *workloadmanager.WriteInsightR
 	wlm.Request = writeInsightRequest
 }
 
-// InitializeSQLServerValidation intializes and returns SqlserverValidation.
+// InitializeSQLServerValidation initializes and returns SqlserverValidation.
 func InitializeSQLServerValidation(projectID, instance string) *workloadmanager.SqlserverValidation {
 	return &workloadmanager.SqlserverValidation{
 		AgentVersion: internal.AgentVersion,
@@ -76,7 +76,7 @@ func InitializeSQLServerValidation(projectID, instance string) *workloadmanager.
 	}
 }
 
-// InitializeWriteInsightRequest intializes and returns WriteInsightRequest.
+// InitializeWriteInsightRequest initializes and returns WriteInsightRequest.
 func InitializeWriteInsightRequest(sqlservervalidation *workloadmanager.SqlserverValidation, instanceID string) *workloadmanager.WriteInsightRequest {
 	return &workloadmanager.WriteInsightRequest{
 		Insight: &workloadmanager.Insight{
