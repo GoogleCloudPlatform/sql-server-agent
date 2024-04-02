@@ -38,7 +38,7 @@ const (
 	
 
 	// AgentVersion is the version of the agent.
-	AgentVersion = `1.0`
+	AgentVersion = `1.1`
 	
 )
 
