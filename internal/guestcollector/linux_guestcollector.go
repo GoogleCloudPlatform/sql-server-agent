@@ -28,6 +28,8 @@ import (
 
 	"github.com/GoogleCloudPlatform/sapagent/shared/commandlineexecutor"
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
+
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/instanceinfo"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/remote"
@@ -71,6 +73,7 @@ type LinuxCollector struct {
 	remote                 bool
 	port                   int32
 	remoteRunner           remote.Executor
+	usageMetricsLogger     agentstatus.AgentStatus
 }
 
 type commandExecutor struct {
@@ -98,7 +101,7 @@ var lshwFieldsToParse = []string{
 func lshwFields() []string { return lshwFieldsToParse }
 
 // NewLinuxCollector initializes and returns a new LinuxCollector object.
-func NewLinuxCollector(disks []*instanceinfo.Disks, ipAddr, username, privateKeyPath string, isRemote bool, port int32) *LinuxCollector {
+func NewLinuxCollector(disks []*instanceinfo.Disks, ipAddr, username, privateKeyPath string, isRemote bool, port int32, usageMetricsLogger agentstatus.AgentStatus) *LinuxCollector {
 	c := LinuxCollector{
 		ipaddr:                 ipAddr,
 		username:               username,
@@ -109,16 +112,19 @@ func NewLinuxCollector(disks []*instanceinfo.Disks, ipAddr, username, privateKey
 		lshwRegexMapping:       map[string]*regexp.Regexp{},
 		remote:                 isRemote,
 		port:                   port,
+		usageMetricsLogger:     usageMetricsLogger,
 	}
 
 	if c.remote {
-		c.remoteRunner = remote.NewRemote(c.ipaddr, c.username, c.port)
+		c.remoteRunner = remote.NewRemote(c.ipaddr, c.username, c.port, c.usageMetricsLogger)
 		c.setUpRegex()
 		if err := c.remoteRunner.SetupKeys(c.privateKeyPath); err != nil {
 			log.Logger.Error(err)
+			c.usageMetricsLogger.Error(agentstatus.SetupSSHKeysError)
 			c.remoteRunner = nil
 		} else if err := c.remoteRunner.CreateClient(); err != nil {
 			log.Logger.Error(err)
+			c.usageMetricsLogger.Error(agentstatus.SSHDialError)
 			c.remoteRunner = nil
 		}
 	}
@@ -286,7 +292,7 @@ func (c *LinuxCollector) setUpRegex() {
 }
 
 // DiskToDiskType maps physical drive to disktype. EX: /dev/sda to local_ssd
-func DiskToDiskType(fields map[string]string, disks []*instanceinfo.Disks) {
+func DiskToDiskType(fields map[string]string, disks []*instanceinfo.Disks, usageMetricLogger agentstatus.AgentStatus) {
 	logicalToTypeMap := map[string]string{}
 	for _, devices := range disks {
 		var err error
@@ -302,6 +308,7 @@ func DiskToDiskType(fields map[string]string, disks []*instanceinfo.Disks) {
 	r, err := json.Marshal(logicalToTypeMap)
 	if err != nil {
 		log.Logger.Errorw("An error occured while serializing disk info to JSON", "error", err)
+		usageMetricLogger.Error(agentstatus.InvalidJSONFormatError)
 	}
 	if len(logicalToTypeMap) == 0 {
 		fields[internal.LocalSSDRule] = "unknown"
@@ -421,12 +428,13 @@ func (c *LinuxCollector) CollectGuestRules(ctx context.Context, timeout time.Dur
 		defer cancel()
 		ch := make(chan bool, 1)
 		go func() {
-			DiskToDiskType(fields, c.disks)
+			DiskToDiskType(fields, c.disks, c.usageMetricsLogger)
 			ch <- true
 		}()
 		select {
 		case <-ctxWithTimeout.Done():
 			log.Logger.Errorf("DiskToDiskType() for local linux disktype timeout")
+			c.usageMetricsLogger.Error(agentstatus.MappingLocalLinuxDiskTypeTimeout)
 		case <-ch:
 		}
 
@@ -453,6 +461,7 @@ func (c *LinuxCollector) CollectGuestRules(ctx context.Context, timeout time.Dur
 							log.Logger.Warnw("Failed to run remote command. Install command on linux vm to collect more data", "command", exe.command, "error", err)
 						} else {
 							log.Logger.Errorw("Failed to run remote command", "command", exe.command, "error", err)
+							c.usageMetricsLogger.Error(agentstatus.RemoteCommandExecutionError)
 						}
 						fields[rule] = "unknown"
 						ch <- false
@@ -466,6 +475,7 @@ func (c *LinuxCollector) CollectGuestRules(ctx context.Context, timeout time.Dur
 							log.Logger.Warnw("Failed to run remote command. Install command on linux vm to collect more data", "command", exe.command, "error", err)
 						} else {
 							log.Logger.Errorw("Failed to run command", "command", exe.command, "error", err)
+							c.usageMetricsLogger.Error(agentstatus.CommandExecutionError)
 						}
 						fields[rule] = "unknown"
 						ch <- false
@@ -479,6 +489,7 @@ func (c *LinuxCollector) CollectGuestRules(ctx context.Context, timeout time.Dur
 			select {
 			case <-ctxWithTimeout.Done():
 				log.Logger.Errorf("Running linux guest rule %s timeout", rule)
+				c.usageMetricsLogger.Error(agentstatus.LinuxGuestCollectionTimeout)
 			case <-ch:
 			}
 

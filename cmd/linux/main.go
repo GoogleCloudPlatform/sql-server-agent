@@ -71,7 +71,7 @@ func main() {
 		return
 	}
 
-        // Init UsageMetricsLogger by reading "log_usage" from the configuration file.
+	// Init UsageMetricsLogger by reading "log_usage" from the configuration file.
 	agent.UsageMetricsLogger = agent.UsageMetricsLoggerInit(cfg.GetLogUsage())
 
 	osCollectionFunc := func(cfg *configpb.Configuration, onetime bool) error {
@@ -135,7 +135,7 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 		return fmt.Errorf("Failed to collect disk info: %w", err)
 	}
 
-	c := guestcollector.NewLinuxCollector(disks, "", "", "", false, 22)
+	c := guestcollector.NewLinuxCollector(disks, "", "", "", false, 22, agent.UsageMetricsLogger)
 	timeout := time.Duration(cfg.GetCollectionTimeoutSeconds()) * time.Second
 	details := agent.RunOSCollection(ctx, c, timeout)
 	agent.UpdateCollectedData(wlm, sourceInstanceProps, targetInstanceProps, details)

@@ -158,7 +158,7 @@ func ValidateCredCfgGuest(remote, windows bool, guestCfg *configuration.GuestCon
 
 // RunSQLCollection starts running sql collection based on given connection string.
 func RunSQLCollection(ctx context.Context, conn string, timeout time.Duration, windows bool) ([]internal.Details, error) {
-	c, err := sqlcollector.NewV1(driver, conn, windows)
+	c, err := sqlcollector.NewV1(driver, conn, windows, UsageMetricsLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +215,7 @@ func SendRequestToWLM(wlmService wlm.WorkloadManagerService, location string, re
 		_, err := wlmService.SendRequest(location)
 		if err != nil {
 			log.Logger.Errorw("Failed to send request to workload manager", "error", err)
+			UsageMetricsLogger.Error(agentstatus.WorkloadManagerConnectionError)
 			return false
 		}
 		return true
@@ -222,6 +223,7 @@ func SendRequestToWLM(wlmService wlm.WorkloadManagerService, location string, re
 
 	if err := Retry(sendRequest, retries, interval); err != nil {
 		log.Logger.Errorw("Failed to retry sending request to workload manager", "error", err)
+		UsageMetricsLogger.Error(agentstatus.WorkloadManagerConnectionError)
 	}
 }
 
@@ -298,7 +300,7 @@ func AddPhysicalDriveRemoteLinux(details []internal.Details, cred *configuration
 	port := cred.GuestPortNumber
 	ip := cred.ServerName
 	// We need to call NewRemote, SetupKeys and CreateClient respectively to set up the remote correctly.
-	r := remote.NewRemote(ip, user, port)
+	r := remote.NewRemote(ip, user, port, UsageMetricsLogger)
 	if err := r.SetupKeys(cred.LinuxSSHPrivateKeyPath); err != nil {
 		log.Logger.Errorw("Failed to setup keys.", "error", err)
 		UsageMetricsLogger.Error(agentstatus.SetupSSHKeysError)

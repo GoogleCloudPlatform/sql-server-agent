@@ -118,7 +118,7 @@ func TestCollectGuestRules(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			collector := NewWindowsCollector(nil, nil, nil)
+			collector := NewWindowsCollector(nil, nil, nil, fakeUsageMetricsLogger)
 			// apply mock rule map
 			if tc.mockRuleMap {
 				collector.guestRuleWMIMap = tc.guestRuleWMIMapMock
@@ -189,7 +189,7 @@ func TestLogicalDiskMediaType(t *testing.T) {
 			},
 		},
 	}
-	collector := NewWindowsCollector(nil, nil, nil)
+	collector := NewWindowsCollector(nil, nil, nil, fakeUsageMetricsLogger)
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			collector.logicalToPhysicalDiskMap = tc.logicalToDiskMapMock
@@ -261,7 +261,7 @@ func TestCheckWindowsOsReturnedCount(t *testing.T) {
 	guestCollectorCount := len(allOSFields)
 	// logicalDiskMediaType() accounts for fields[internal.LocalSSDRule] field which isn't explicitly definied in guestRuleWMIMap
 	guestCollectorWinCount := 1
-	testWC := NewWindowsCollector(nil, nil, nil)
+	testWC := NewWindowsCollector(nil, nil, nil, fakeUsageMetricsLogger)
 
 	for _, field := range allOSFields {
 		_, ok := testWC.guestRuleWMIMap[field]

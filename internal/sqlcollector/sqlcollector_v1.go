@@ -22,22 +22,24 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
 )
 
 // V1 that execute cmd and connect to SQL server.
 type V1 struct {
-	dbConn  *sql.DB
-	windows bool
+	dbConn             *sql.DB
+	windows            bool
+	usageMetricsLogger agentstatus.AgentStatus
 }
 
 // NewV1 initializes a V1 instance.
-func NewV1(driver, conn string, windows bool) (*V1, error) {
+func NewV1(driver, conn string, windows bool, usageMetricsLogger agentstatus.AgentStatus) (*V1, error) {
 	dbConn, err := sql.Open(driver, conn)
 	if err != nil {
 		return nil, err
 	}
-	return &V1{dbConn: dbConn, windows: windows}, nil
+	return &V1{dbConn: dbConn, windows: windows, usageMetricsLogger: usageMetricsLogger}, nil
 }
 
 // CollectMasterRules collects master rules from target sql server.
@@ -51,6 +53,7 @@ func (c *V1) CollectMasterRules(ctx context.Context, timeout time.Duration) []in
 			queryResult, err := c.executeSQL(ctxWithTimeout, rule.Query)
 			if err != nil {
 				log.Logger.Errorw("Failed to run sql query", "query", rule.Query, "error", err)
+				c.usageMetricsLogger.Error(agentstatus.SQLQueryExecutionError)
 				return
 			}
 			details = append(details, internal.Details{

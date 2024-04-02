@@ -159,17 +159,17 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 					}
 					continue
 				}
-				c = guestcollector.NewWindowsCollector(host, username, pswd)
+				c = guestcollector.NewWindowsCollector(host, username, pswd, agent.UsageMetricsLogger)
 			} else {
 				// on local windows vm collecting on remote linux vm's, we use ssh, otherwise we use wmi
 				log.Logger.Debug("Starting remote linux guest collection for ip " + host)
 				// disks only used for local linux collection
-				c = guestcollector.NewLinuxCollector(nil, host, username, guestCfg.LinuxSSHPrivateKeyPath, true, guestCfg.GuestPortNumber)
+				c = guestcollector.NewLinuxCollector(nil, host, username, guestCfg.LinuxSSHPrivateKeyPath, true, guestCfg.GuestPortNumber, agent.UsageMetricsLogger)
 			}
 		} else {
 			// local win collection
 			log.Logger.Debug("Starting local win guest collection")
-			c = guestcollector.NewWindowsCollector(nil, nil, nil)
+			c = guestcollector.NewWindowsCollector(nil, nil, nil, agent.UsageMetricsLogger)
 		}
 
 		details := agent.RunOSCollection(ctx, c, timeout)

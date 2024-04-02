@@ -28,6 +28,7 @@ import (
 
 	"github.com/StackExchange/wmi"
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
 )
 
@@ -39,6 +40,7 @@ type WindowsCollector struct {
 	guestRuleWMIMap          map[string]wmiExecutor
 	logicalToPhysicalDiskMap map[string]string
 	physicalDiskToTypeMap    map[string]string
+	usageMetricLogger        agentstatus.AgentStatus
 }
 type wmiExecutor struct {
 	namespace   string
@@ -57,7 +59,7 @@ type wmiConnectionArgs struct {
 }
 
 // NewWindowsCollector initializes and returns new WindowsCollector object.
-func NewWindowsCollector(host, username, password any) *WindowsCollector {
+func NewWindowsCollector(host, username, password any, usageMetricLogger agentstatus.AgentStatus) *WindowsCollector {
 	c := WindowsCollector{
 		host:                     host,
 		username:                 username,
@@ -65,6 +67,7 @@ func NewWindowsCollector(host, username, password any) *WindowsCollector {
 		guestRuleWMIMap:          map[string]wmiExecutor{},
 		logicalToPhysicalDiskMap: map[string]string{},
 		physicalDiskToTypeMap:    map[string]string{},
+		usageMetricLogger:        usageMetricLogger,
 	}
 	c.guestRuleWMIMap[internal.PowerProfileSettingRule] = wmiExecutor{
 		namespace: `root\cimv2\power`,
@@ -174,6 +177,7 @@ func (c *WindowsCollector) logicalDiskMediaType(details *internal.Details) {
 	r, err := json.Marshal(logicalToTypeMap)
 	if err != nil {
 		log.Logger.Error(err)
+		c.usageMetricLogger.Error(agentstatus.InvalidJSONFormatError)
 	} else {
 		details.Fields[0][internal.LocalSSDRule] = string(r)
 	}
@@ -202,6 +206,7 @@ func (c *WindowsCollector) CollectGuestRules(ctx context.Context, timeout time.D
 				res, err := exe.runWMIQuery(connArgs)
 				if err != nil {
 					log.Logger.Error(err)
+					c.usageMetricLogger.Error(agentstatus.WMIQueryExecutionError)
 					if exe.isRule {
 						fields[rule] = "unknown"
 					}
@@ -216,6 +221,7 @@ func (c *WindowsCollector) CollectGuestRules(ctx context.Context, timeout time.D
 			select {
 			case <-ctxWithTimeout.Done():
 				log.Logger.Errorf("Running windows guest rule %s timeout", rule)
+				c.usageMetricLogger.Error(agentstatus.WinGuestCollectionTimeout)
 			case <-ch:
 			}
 		}()

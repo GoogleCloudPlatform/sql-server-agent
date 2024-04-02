@@ -30,6 +30,7 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 	"golang.org/x/crypto/ssh"
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 )
 
 // SSHClientInterface abstracts the client struct from ssh package
@@ -53,11 +54,12 @@ type Executor interface {
 
 // remote contains the key for remote ssh'ing
 type remote struct {
-	user   string
-	ip     string
-	port   int32
-	key    *key
-	client SSHClientInterface
+	user               string
+	ip                 string
+	port               int32
+	key                *key
+	client             SSHClientInterface
+	usageMetricsLogger agentstatus.AgentStatus
 }
 
 type key struct {
@@ -67,12 +69,13 @@ type key struct {
 }
 
 // NewRemote attempts to find connect to remote ssh server with private key
-func NewRemote(ipaddr, user string, port int32) Executor {
+func NewRemote(ipaddr, user string, port int32, usageMetricsLogger agentstatus.AgentStatus) Executor {
 	return &remote{
-		ip:   ipaddr,
-		port: port,
-		user: user,
-		key:  &key{},
+		ip:                 ipaddr,
+		port:               port,
+		user:               user,
+		key:                &key{},
+		usageMetricsLogger: usageMetricsLogger,
 	}
 }
 
@@ -121,6 +124,7 @@ func (r *remote) publicKey(host, knownHostsPath string) error {
 		_, hosts, key, _, _, err := ssh.ParseKnownHosts(scanner.Bytes())
 		if err != nil {
 			log.Logger.Errorf("failed to parse known_hosts: %s", scanner.Text())
+			r.usageMetricsLogger.Error(agentstatus.ParseKnownHostsError)
 			continue
 		}
 

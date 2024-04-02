@@ -199,7 +199,7 @@ func TestPhysicalDriveToDiskType(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			symLinkCommand = tc.Command
 
-			DiskToDiskType(tc.inputDetails, tc.disks)
+			DiskToDiskType(tc.inputDetails, tc.disks, fakeUsageMetricsLogger)
 			got := tc.inputDetails
 
 			if diff := cmp.Diff(got, tc.want); diff != "" {
@@ -300,7 +300,7 @@ func TestCollectLinuxGuestRules(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			collector := NewLinuxCollector(nil, "", "", "", false, 22)
+			collector := NewLinuxCollector(nil, "", "", "", false, 22, fakeUsageMetricsLogger)
 			if tc.mockRuleMap {
 				collector.guestRuleCommandMap = tc.commandExecutorMapMock
 			} else if tc.mockWMIErr {
@@ -415,7 +415,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			collector := NewLinuxCollector(nil, "", "", "", true, 22)
+			collector := NewLinuxCollector(nil, "", "", "", true, 22, fakeUsageMetricsLogger)
 			if !tc.emptyRemoteRunner {
 				collector.remoteRunner = newMockRemote(tc.runErr, tc.createSessionErr, tc.lshwErr, tc.powerPlanInput)
 			} else {
@@ -435,7 +435,7 @@ func TestCheckLinusOsReturnedCount(t *testing.T) {
 	guestCollectorCount := len(allOSFields)
 	guestCollectorLinuxCount := 0
 
-	testLC := NewLinuxCollector(nil, "", "", "", false, 22)
+	testLC := NewLinuxCollector(nil, "", "", "", false, 22, fakeUsageMetricsLogger)
 
 	for _, field := range allOSFields {
 		_, ok := testLC.guestRuleCommandMap[field]
@@ -532,7 +532,7 @@ func TestFindLshwFields(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			c := NewLinuxCollector(nil, "", "", "", true, 22)
+			c := NewLinuxCollector(nil, "", "", "", true, 22, fakeUsageMetricsLogger)
 			test, err := c.findLshwFields(tc.lshwInput)
 			if err != nil {
 				t.Errorf("findLshwFields() returned error: %v", err)
@@ -587,7 +587,7 @@ func TestFindHwinfoFields(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			c := NewLinuxCollector(nil, "", "", "", true, 22)
+			c := NewLinuxCollector(nil, "", "", "", true, 22, fakeUsageMetricsLogger)
 			test, err := c.findHwinfoFields(tc.lshwInput)
 			if err != nil {
 				t.Errorf("findHwinfoFields() returned error: %v", err)
@@ -624,7 +624,7 @@ func TestFindHwinfoFields_BadInput(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			c := NewLinuxCollector(nil, "", "", "", true, 22)
+			c := NewLinuxCollector(nil, "", "", "", true, 22, fakeUsageMetricsLogger)
 			_, err := c.findHwinfoFields(tc.lshwInput)
 			if err == nil {
 				t.Errorf("findHwinfoFields() returned nil error, want error")
@@ -658,7 +658,7 @@ func TestFindLshwField_BadInput(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			c := NewLinuxCollector(nil, "", "", "", true, 22)
+			c := NewLinuxCollector(nil, "", "", "", true, 22, fakeUsageMetricsLogger)
 			_, err := c.findLshwFields(tc.lshwInput)
 			if err == nil {
 				t.Errorf("findLshwFields() returned nil error, want error")
@@ -698,7 +698,7 @@ func TestFindLshwFieldString(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			c := NewLinuxCollector(nil, "", "", "", true, 22)
+			c := NewLinuxCollector(nil, "", "", "", true, 22, fakeUsageMetricsLogger)
 			got, err := c.findLshwFieldString(tc.lshwResult, tc.field)
 			if err != nil {
 				t.Errorf("findLshwFieldString(%v, %v) returned an unexpected error: %v", tc.lshwResult, tc.field, err)
@@ -738,7 +738,7 @@ func TestFindLshwFieldString_BadInput(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.lshwResult, func(t *testing.T) {
-			c := NewLinuxCollector(nil, "", "", "", true, 22)
+			c := NewLinuxCollector(nil, "", "", "", true, 22, fakeUsageMetricsLogger)
 			_, err := c.findLshwFieldString(tc.lshwResult, tc.field)
 			if err == nil {
 				t.Errorf("findLshwFieldString(%v, %v) returned an unexpected error: %v", tc.lshwResult, tc.field, err)
@@ -778,7 +778,7 @@ func TestFindLshwFieldInt(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			c := NewLinuxCollector(nil, "", "", "", true, 22)
+			c := NewLinuxCollector(nil, "", "", "", true, 22, fakeUsageMetricsLogger)
 			got, err := c.findLshwFieldInt(tc.lshwResult, tc.field)
 			if err != nil {
 				t.Errorf("findLshwFieldInt(%v, %v) returned an unexpected error: %v", tc.lshwResult, tc.field, err)
@@ -817,7 +817,7 @@ func TestFindLshwFieldInt_BadInput(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			c := NewLinuxCollector(nil, "", "", "", true, 22)
+			c := NewLinuxCollector(nil, "", "", "", true, 22, fakeUsageMetricsLogger)
 			_, err := c.findLshwFieldInt(tc.lshwResult, tc.field)
 			if err == nil {
 				t.Errorf("findLshwFieldInt(%v, %v) returned an unexpected error: %v", tc.lshwResult, tc.field, err)

@@ -22,11 +22,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/google/go-cmp/cmp"
 	_ "github.com/microsoft/go-mssqldb"
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
 )
+
+var fakeCloudProperties = agentstatus.NewCloudProperties("testProjectID", "testZone", "testInstanceName", "testProjectNumber", "testImage")
+var fakeAgentProperties = agentstatus.NewAgentProperties("testName", "testVersion", false)
+var fakeUsageMetricsLogger = agentstatus.NewUsageMetricsLogger(fakeAgentProperties, fakeCloudProperties, clockwork.NewRealClock(), []string{})
 
 func TestCollectMasterRules(t *testing.T) {
 	testcases := []struct {
@@ -129,7 +135,10 @@ func TestCollectMasterRules(t *testing.T) {
 	}
 	defer db.Close()
 
-	c := V1{dbConn: db}
+	c := V1{
+		dbConn:             db,
+		usageMetricsLogger: fakeUsageMetricsLogger,
+	}
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
@@ -172,7 +181,7 @@ func TestNewV1(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		_, err := NewV1(tc.driver, "", true)
+		_, err := NewV1(tc.driver, "", true, fakeUsageMetricsLogger)
 		if gotErr := err != nil; gotErr != tc.wantErr {
 			t.Errorf("NewV1() = %v, want error presence = %v", err, tc.wantErr)
 		}
@@ -180,7 +189,7 @@ func TestNewV1(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	c, err := NewV1("sqlserver", "", true)
+	c, err := NewV1("sqlserver", "", true, fakeUsageMetricsLogger)
 	if err != nil {
 		t.Errorf("NewV1() = %v, want nil", err)
 	}

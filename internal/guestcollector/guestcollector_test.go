@@ -19,9 +19,15 @@ package guestcollector
 import (
 	"testing"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/google/go-cmp/cmp"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
 )
+
+var fakeCloudProperties = agentstatus.NewCloudProperties("testProjectID", "testZone", "testInstanceName", "testProjectNumber", "testImage")
+var fakeAgentProperties = agentstatus.NewAgentProperties("testName", "testVersion", false)
+var fakeUsageMetricsLogger = agentstatus.NewUsageMetricsLogger(fakeAgentProperties, fakeCloudProperties, clockwork.NewRealClock(), []string{})
 
 func TestCheckOSCollectedMetrics(t *testing.T) {
 	tests := []struct {

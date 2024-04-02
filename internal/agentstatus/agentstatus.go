@@ -67,6 +67,7 @@ const (
 	CommandExecutionError
 	RemoteCommandExecutionError
 	DataTypeConversionError
+	WorkloadManagerConnectionError
 	WinGuestCollectionTimeout
 	LinuxGuestCollectionTimeout
 	MappingLocalLinuxDiskTypeTimeout
