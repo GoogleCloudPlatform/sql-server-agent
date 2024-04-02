@@ -82,14 +82,14 @@ type InstanceProperties struct {
 }
 
 // UsageMetricsLogger logs usage metrics.
-var UsageMetricsLogger agentstatus.AgentStatus
+var UsageMetricsLogger agentstatus.AgentStatus = UsageMetricsLoggerInit(false)
 
 // UsageMetricsLoggerInit initializes and returns usage metrics logger.
-func UsageMetricsLoggerInit(logUsage bool) {
+func UsageMetricsLoggerInit(logUsage bool) agentstatus.AgentStatus {
 	ap := agentstatus.NewAgentProperties(ServiceName, internal.AgentVersion, logUsage)
 	sip := SourceInstanceProperties()
 	cp := agentstatus.NewCloudProperties(sip.ProjectID, sip.Zone, sip.Instance, sip.ProjectNumber, sip.Image)
-	UsageMetricsLogger = agentstatus.NewUsageMetricsLogger(ap, cp, clockwork.NewRealClock(), []string{})
+	return agentstatus.NewUsageMetricsLogger(ap, cp, clockwork.NewRealClock(), []string{})
 }
 
 // SourceInstanceProperties returns properties of the instance the agent is running on.
@@ -270,7 +270,9 @@ func CollectionService(p string, collection func(cfg *configpb.Configuration, on
 			time.Sleep(time.Duration(time.Hour))
 			continue
 		}
-		// set onetime to false for running collection as service
+		// Init UsageMetricsLogger for each collection cycle.
+		UsageMetricsLogger = UsageMetricsLoggerInit(cfg.GetLogUsage())
+		// Set onetime to false for running collection as service
 		if err := collection(cfg, false); err != nil {
 			log.Logger.Errorw("Failed to run collection", "collection type", collectionType, "error", err)
 			if collectionType == OS {
@@ -281,6 +283,7 @@ func CollectionService(p string, collection func(cfg *configpb.Configuration, on
 			time.Sleep(time.Duration(time.Hour))
 			continue
 		}
+		// Sleep for collection interval.
 		if collectionType == OS {
 			time.Sleep(time.Duration(cfg.GetCollectionConfiguration().GetGuestOsMetricsCollectionIntervalInSeconds()) * time.Second)
 		} else if collectionType == SQL {
