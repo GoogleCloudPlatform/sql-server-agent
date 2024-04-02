@@ -51,11 +51,12 @@ func CheckAgentStatus(agentStatus activation.AgentStatus, wlmService wlm.Workloa
 
 // LoggingSetup sets the log parameters.
 func LoggingSetup(ctx context.Context, prefix, level, projectID string, cloudLogging bool) {
+	client, _ := log.CloudLoggingClient(ctx, projectID)
 	lp := log.Parameters{
 		LogFileName:        prefix + ".log",
 		LogToCloud:         cloudLogging,
 		CloudLogName:       "google-cloud-sql-server-agent",
-		CloudLoggingClient: log.CloudLoggingClient(ctx, projectID),
+		CloudLoggingClient: client,
 	}
 	logLevel := map[string]zapcore.Level{
 		"DEBUG":   zapcore.DebugLevel,
