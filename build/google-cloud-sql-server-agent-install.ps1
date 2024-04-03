@@ -122,7 +122,7 @@ function Update-Configuration {
           }))
       ) -Force
       if ([string]::isNullOrEmpty($config.remote_collection) -or ($config.remote_collection -eq $false)) {
-        Add-Member -InputObject $cred -MemberType NoteProperty -Name 'local_collections' -Value $true -Force
+        Add-Member -InputObject $cred -MemberType NoteProperty -Name 'local_collection' -Value $true -Force
       }
       elseif ([string]::isNullOrEmpty($cred.linux_remote) -or ($cred.linux_remote -eq $false)) {
         Add-Member -InputObject $cred -MemberType NoteProperty -Name 'remote_win' -Value $(New-Object PSObject -Property $([ordered]@{
