@@ -18,7 +18,7 @@ limitations under the License.
 package agentstatus
 
 import (
-	"google3/third_party/sapagent/shared/usagemetrics/usagemetrics"
+	"github.com/GoogleCloudPlatform/sapagent/shared/usagemetrics"
 )
 
 // AgentStatus interface.

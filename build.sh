@@ -9,13 +9,8 @@ set -exu
 
 echo "Starting the build process for the SQL Server Agent..."
 
-# LINT.IfChange
 echo "**************  Getting go 1.20"
 wget -q https://go.dev/dl/go1.20.3.linux-amd64.tar.gz
-# LINT.ThenChange(
-#  //depot/google3/third_party/sqlserveragent/kokoro/build.sh,
-#  //depot/google3/third_party/sqlserveragent/.github/workflows/go.yml
-# )
 mkdir -p /tmp/sqlserveragent
 tar -C /tmp/sqlserveragent -xzf go1.20.3.linux-amd64.tar.gz
 export GOROOT=/tmp/sqlserveragent/go
