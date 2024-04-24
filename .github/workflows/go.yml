@@ -19,10 +19,21 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.20'
+        go-version: '1.21'
+    - name: Install dependencies
+      run: |
+        go get -d ./...
 
     - name: Build
       run: go build -v ./...
 
     - name: Test
       run: go test -v ./...
+
+    - name: Notify on failure
+      if: ${{ failure() }}
+      uses: cinotify/github-action@v1.1.0
+      with:
+        to: 'wlm-sql-eng+github@google.com'
+        subject: '[Failure] GitHub Agent for SQL Server build failure'
+        body: 'There was a failure for the Agent for SQL Server workflow action.\n\n https://github.com/GoogleCloudPlatform/sql-server-agent/actions/runs/${{ github.run_id }}'
