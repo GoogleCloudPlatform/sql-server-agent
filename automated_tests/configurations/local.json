@@ -1,0 +1,27 @@
+{
+  "collection_configuration": {
+    "collect_guest_os_metrics":true,
+    "guest_os_metrics_collection_interval_in_seconds":3600,
+    "collect_sql_metrics":true,
+    "sql_metrics_collection_interval_in_seconds":3600
+  },
+  "credential_configuration": [
+    {
+      "sql_configurations": [
+        {
+          "host":".",
+          "user_name":"local-user",
+          "secret_name":"integration-test-pswd",
+          "port_number":1433
+        }
+      ],
+      "local_collection":true
+    }
+  ],
+  "log_level":"INFO",
+  "log_to_cloud":true,
+  "collection_timeout_seconds":60,
+  "max_retries":5,
+  "retry_interval_in_seconds":3600,
+  "log_usage":true
+}
