@@ -14,7 +14,10 @@ else
   else
     zypper addrepo --refresh https://packages.cloud.google.com/yum/repos/google-cloud-sql-server-agent-sles15 google-cloud-sql-server-agent
   fi
-  zypper --non-interactive install google-cloud-sql-server-agent
+  while ! zypper --non-interactive install google-cloud-sql-server-agent
+  do
+    sleep 10
+  done
 fi
 echo "
 $config

@@ -30,7 +30,10 @@ repo_gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOM
   fi
-  yum -y install google-cloud-sql-server-agent
+  while ! yum -y install google-cloud-sql-server-agent
+  do
+    sleep 10
+  done
 fi
 echo "
 $config
