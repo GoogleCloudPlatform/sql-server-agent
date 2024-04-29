@@ -9,4 +9,4 @@ blaze build third_party/sqlserveragent/cmd/linux:google_cloud_sql_server_agent
 # copy the linux build to the bucket
 gsutil cp blaze-bin/third_party/sqlserveragent/cmd/linux/google_cloud_sql_server_agent gs://sql-server-agent-integration/$USER/google-cloud-sql-server-agent
 # run the integration test
-blaze test --test_strategy=local third_party/sqlserveragent/integration/integration_test:integration_test_google3
+blaze test --test_strategy=local third_party/sqlserveragent/automation_tests/integration_test:integration_test_google3

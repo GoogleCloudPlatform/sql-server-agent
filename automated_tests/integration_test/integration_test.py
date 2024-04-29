@@ -140,8 +140,8 @@ class IntegrationTest(bigclustertest.TestCase):
         'remote-integration.json',
     )
 
-  # def testWorkloadManagerEvaluation(self):
-  #   self.integrationtest_helper.VerifyEvaluationRun()
+  def testWorkloadManagerEvaluation(self):
+    self.integrationtest_helper.VerifyEvaluationRun()
 
   def _runAgentAndVerify(self, vm_id, configuration: str = 'local.json'):
     self.integrationtest_helper.SetUpAgent(vm_id, configuration)
