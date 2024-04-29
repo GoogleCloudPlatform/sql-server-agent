@@ -93,6 +93,7 @@ func TestLoadConfiguration(t *testing.T) {
 				},
 				LogLevel:                 "INFO",
 				CollectionTimeoutSeconds: 10,
+				LogToCloud:               true,
 				MaxRetries:               5,
 				RetryIntervalInSeconds:   3600,
 			},

@@ -273,7 +273,7 @@ func CollectionService(p string, collection func(cfg *configpb.Configuration, on
 			continue
 		}
 		// Init UsageMetricsLogger for each collection cycle.
-		UsageMetricsLogger = UsageMetricsLoggerInit(cfg.GetLogUsage())
+		UsageMetricsLogger = UsageMetricsLoggerInit(!cfg.GetDisableLogUsage())
 		// Set onetime to false for running collection as service
 		if err := collection(cfg, false); err != nil {
 			log.Logger.Errorw("Failed to run collection", "collection type", collectionType, "error", err)

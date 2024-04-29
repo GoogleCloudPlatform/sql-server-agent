@@ -72,6 +72,7 @@ func LoadConfiguration(p string) (*configpb.Configuration, error) {
 				},
 			},
 			LogLevel:                 "INFO",
+			LogToCloud:               true,
 			CollectionTimeoutSeconds: 10,
 			MaxRetries:               5,
 			RetryIntervalInSeconds:   3600,

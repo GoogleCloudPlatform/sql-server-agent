@@ -39,7 +39,7 @@ message Configuration {
   // default log_to_cloud is false
   bool log_to_cloud = 8;
   // default log_usage is false
-  bool log_usage = 9;
+  bool disable_log_usage = 9;
 }
 
 message CollectionConfiguration {

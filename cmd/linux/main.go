@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// Init UsageMetricsLogger by reading "log_usage" from the configuration file.
-	agent.UsageMetricsLogger = agent.UsageMetricsLoggerInit(cfg.GetLogUsage())
+	agent.UsageMetricsLogger = agent.UsageMetricsLoggerInit(!cfg.GetDisableLogUsage())
 
 	osCollectionFunc := func(cfg *configpb.Configuration, onetime bool) error {
 		return osCollection(ctx, tmpPath, logPrefix, cfg, onetime)
