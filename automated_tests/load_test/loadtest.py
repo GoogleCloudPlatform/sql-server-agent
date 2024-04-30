@@ -15,7 +15,7 @@ from absl import flags
 from google3.cloud.cluster.testing.framework import bigclustertest
 from google3.cloud.cluster.testing.framework import virtual_machine
 from google3.cloud.cluster.testing.framework import windows_test_utils
-from google3.third_party.sqlserveragent.automated_tests.helper import agent_helper
+from google3.third_party.sqlserveragent.automated_tests.helper import integrationtest_helper
 from google3.third_party.sqlserveragent.automated_tests.helper import loadtest_helper
 from google3.third_party.sqlserveragent.automated_tests.parameters import sqlserveragent_test_constants
 
@@ -50,9 +50,10 @@ class LoadTest(bigclustertest.TestCase):
         sqlserveragent_test_constants.SERVICE_ACCOUNT_SCOPES,
     )
     vm_sqlserver.Insert()
-    # We need to wait for 1 min so the VM is fully booted and then we are able
-    # to get the private ip of the VM.
-    time.sleep(60)
+    # We need to wait for 5 min so the VM is fully booted and then we are able
+    # to get the private ip of the VM, and the SQL Server could respond the
+    # query requests properly.
+    time.sleep(300)
 
     vm_hammerdb = windows_test_utils.CreateWindowsVm(
         cls=cls,
@@ -83,6 +84,14 @@ class LoadTest(bigclustertest.TestCase):
     cls.lt_helper.RunSqlScripts('runtime_collection.sql')
     cls.lt_helper.RunSqlScripts('sp_write_performance_counters.sql')
 
+    cls.integrationtest_helper = integrationtest_helper.IntegrationHelper(
+        'unstable',
+        vm_sqlserver,
+        None,
+        None,
+        None,
+    )
+
   def testLoadTest(self):
     self.lt_helper.RunSqlScripts('run_loadtest.sql', background=True)
     self.lt_helper.RunVirtualUsers()
@@ -91,12 +100,9 @@ class LoadTest(bigclustertest.TestCase):
     self.lt_helper.ProcessLoadTestResult()
 
   def testLoadTestWithAgentInstalled(self):
-    ah = agent_helper.AgentHelper(self.vm_sqlserver, True, 'unstable')
-    ah.AddRepo()
-    ah.InstallAgent()
-    ah.UpdateConfiguration('local.json')
-    ah.StartService()
-    ah.VerifyAgentRunning()
+    self.integrationtest_helper.SetUpAgent(
+        sqlserveragent_test_constants.VM_ID_WIN_LOCAL
+    )
     self.lt_helper.RunSqlScripts('run_loadtest.sql', background=True)
     self.lt_helper.RunVirtualUsers()
     self.lt_helper.StopBackgroundJob()
