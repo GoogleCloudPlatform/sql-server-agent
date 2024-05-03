@@ -1,9 +1,9 @@
 {
   "collection_configuration": {
     "collect_guest_os_metrics":true,
-    "guest_os_metrics_collection_interval_in_seconds":60,
+    "guest_os_metrics_collection_interval_in_seconds":3600,
     "collect_sql_metrics":true,
-    "sql_metrics_collection_interval_in_seconds":60
+    "sql_metrics_collection_interval_in_seconds":3600
   },
   "credential_configuration": [
     {
