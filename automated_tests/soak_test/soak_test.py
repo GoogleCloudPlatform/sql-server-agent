@@ -16,7 +16,6 @@ from google3.cloud.cluster.testing.framework import bigclustertest
 from google3.cloud.cluster.testing.framework import virtual_machine
 from google3.cloud.cluster.testing.framework import windows_test_utils
 from google3.third_party.sqlserveragent.automated_tests.helper import integrationtest_helper
-from google3.third_party.sqlserveragent.automated_tests.helper import soaktest_helper
 from google3.third_party.sqlserveragent.automated_tests.parameters import sqlserveragent_test_constants
 
 FLAGS = flags.FLAGS
@@ -119,37 +118,19 @@ class SoakTest(bigclustertest.TestCase):
         vm_rhel,
         vm_suse,
     )
-    cls.soaktest_helper = soaktest_helper.SoakTestHelper(
-        vm_win_local,
-        vm_win_remote,
-        vm_rhel,
-        vm_suse,
-    )
     time.sleep(300)
 
   def testSoakTest(self):
     self.integrationtest_helper.SetUpAgent(
         sqlserveragent_test_constants.VM_ID_WIN_LOCAL
     )
-    self.soaktest_helper.RunUploadLogFileScript(
-        sqlserveragent_test_constants.VM_ID_WIN_LOCAL
-    )
     self.integrationtest_helper.SetUpAgent(
         sqlserveragent_test_constants.VM_ID_WIN_REMOTE, 'remote-soak.json'
     )
-    self.soaktest_helper.RunUploadLogFileScript(
-        sqlserveragent_test_constants.VM_ID_WIN_REMOTE
-    )
     self.integrationtest_helper.SetUpAgent(
         sqlserveragent_test_constants.VM_ID_RHEL
     )
-    self.soaktest_helper.RunUploadLogFileScript(
-        sqlserveragent_test_constants.VM_ID_RHEL
-    )
     self.integrationtest_helper.SetUpAgent(
-        sqlserveragent_test_constants.VM_ID_SUSE
-    )
-    self.soaktest_helper.RunUploadLogFileScript(
         sqlserveragent_test_constants.VM_ID_SUSE
     )
 
