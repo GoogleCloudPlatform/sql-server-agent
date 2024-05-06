@@ -95,16 +95,16 @@ func UsageMetricsLoggerInit(logUsage bool) agentstatus.AgentStatus {
 // SourceInstanceProperties returns properties of the instance the agent is running on.
 func SourceInstanceProperties() InstanceProperties {
 	properties := metadataserver.CloudPropertiesWithRetry(backoff.NewConstantBackOff(30 * time.Second))
-	location := string(properties.GetZone()[0:strings.LastIndex(properties.GetZone(), "-")])
-	name := fmt.Sprintf("projects/%s/locations/%s", properties.GetProjectId(), location)
+	location := string(properties.Zone[0:strings.LastIndex(properties.Zone, "-")])
+	name := fmt.Sprintf("projects/%s/locations/%s", properties.ProjectID, location)
 	return InstanceProperties{
 		Name:          name,
-		ProjectID:     properties.GetProjectId(),
-		ProjectNumber: properties.GetNumericProjectId(),
-		InstanceID:    properties.GetInstanceId(),
-		Instance:      properties.GetInstanceName(),
-		Zone:          properties.GetZone(),
-		Image:         properties.GetImage(),
+		ProjectID:     properties.ProjectID,
+		ProjectNumber: properties.NumericProjectID,
+		InstanceID:    properties.InstanceID,
+		Instance:      properties.InstanceName,
+		Zone:          properties.Zone,
+		Image:         properties.Image,
 	}
 }
 
