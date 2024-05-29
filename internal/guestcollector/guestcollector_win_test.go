@@ -45,7 +45,9 @@ func TestCollectGuestRules(t *testing.T) {
 					map[string]string{
 						"power_profile_setting":      "Balanced",
 						"local_ssd":                  `{"C:":"OTHER"}`,
-						"data_disk_allocation_units": `[{"BlockSize":4096,"Caption":"C:\\"},{"BlockSize":1024,"Caption":"D:\\"}]`},
+						"data_disk_allocation_units": `[{"BlockSize":4096,"Caption":"C:\\"},{"BlockSize":1024,"Caption":"D:\\"}]`,
+						"gcbdr_agent_running":        "false",
+					},
 				},
 			},
 		},
@@ -110,6 +112,7 @@ func TestCollectGuestRules(t *testing.T) {
 						"data_disk_allocation_units": "unknown",
 						"local_ssd":                  "unknown",
 						"power_profile_setting":      "unknown",
+						"gcbdr_agent_running":        "unknown",
 					},
 				},
 			},

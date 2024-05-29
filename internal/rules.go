@@ -31,6 +31,8 @@ const (
 	PhysicalDiskToType = "physical_disk_to_type"
 	// DataDiskAllocationUnitsRule used to see blocksize of a physical drive.
 	DataDiskAllocationUnitsRule = "data_disk_allocation_units"
+	// GCBDRAgentRunning used for checking if GCBDRAgentRunning is running on the target.
+	GCBDRAgentRunning = "gcbdr_agent_running"
 )
 
 // Details represents collected details results.

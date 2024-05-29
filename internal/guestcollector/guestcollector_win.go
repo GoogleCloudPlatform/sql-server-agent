@@ -158,6 +158,23 @@ func NewWindowsCollector(host, username, password any, usageMetricLogger agentst
 			return string(res), nil
 		},
 	}
+	c.guestRuleWMIMap[internal.GCBDRAgentRunning] = wmiExecutor{
+		namespace: `root\cimv2`,
+		isRule:    true,
+		query:     `SELECT caption FROM Win32_Process WHERE Name="udsagent.exe"`,
+		runWMIQuery: func(connArgs wmiConnectionArgs) (string, error) {
+			var result []struct {
+				Caption string
+			}
+			if err := wmi.Query(connArgs.query, &result, connArgs.host, connArgs.namespace, connArgs.username, connArgs.password); err != nil {
+				return "", err
+			}
+			if len(result) == 0 {
+				return "false", nil
+			}
+			return "true", nil
+		},
+	}
 	return &c
 }
 
