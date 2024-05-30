@@ -48,6 +48,7 @@ const (
 	localSSDCommandForSuse         = "sudo hwinfo --disk"
 	powerPlanCommand               = "sudo tuned-adm active"
 	dataDiskAllocationUnitsCommand = "sudo blockdev --getbsz /dev/"
+	gcbdrAgentRunningCommnad       = "sudo systemctl status udsagent | grep \"Active: \""
 	persistentDisk                 = "PersistentDisk"
 	ephemeralDisk                  = "EphemeralDisk"
 )
@@ -259,6 +260,29 @@ func NewLinuxCollector(disks []*instanceinfo.Disks, ipAddr, username, privateKey
 				return "", err
 			}
 			return string(res), nil
+		},
+	}
+	c.guestRuleCommandMap[internal.GCBDRAgentRunning] = commandExecutor{
+		command: gcbdrAgentRunningCommnad,
+		isRule:  true,
+		runCommand: func(ctx context.Context, command string) (string, error) {
+			res, err := internal.CommandLineExecutorWrapper(ctx, "/bin/sh", fmt.Sprintf(" -c '%s'", command), commandlineexecutor.ExecuteCommand)
+			if err != nil || res == "" {
+				return "false", nil
+			}
+			return c.gcbdrAgentRunning(res)
+		},
+		runRemoteCommand: func(ctx context.Context, command string, r remote.Executor) (string, error) {
+			s, err := r.CreateSession("")
+			if err != nil {
+				return "", err
+			}
+			defer s.Close()
+			res, err := r.Run(command, s)
+			if err != nil || res == "" {
+				return "false", nil
+			}
+			return c.gcbdrAgentRunning(res)
 		},
 	}
 	return &c
@@ -498,4 +522,13 @@ func (c *LinuxCollector) CollectGuestRules(ctx context.Context, timeout time.Dur
 	}
 	details.Fields = append(details.Fields, fields)
 	return details
+}
+
+func (c *LinuxCollector) gcbdrAgentRunning(cmdOutput string) (string, error) {
+	reg := regexp.MustCompile(`Active: (.*) since .*`)
+	match := reg.FindStringSubmatch(cmdOutput)
+	if len(match) <= 1 {
+		return "", fmt.Errorf("regexp did not find gcbdr_agent status field")
+	}
+	return strconv.FormatBool(match[1] == "active (running)"), nil
 }

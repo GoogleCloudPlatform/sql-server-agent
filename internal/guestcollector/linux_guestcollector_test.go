@@ -227,6 +227,7 @@ func TestCollectLinuxGuestRules(t *testing.T) {
 						"data_disk_allocation_units": "unknown",
 						"local_ssd":                  "unknown",
 						"power_profile_setting":      "unknown",
+						"gcbdr_agent_running":        "false",
 					},
 				},
 			},
@@ -292,6 +293,7 @@ func TestCollectLinuxGuestRules(t *testing.T) {
 						"data_disk_allocation_units": "unknown",
 						"local_ssd":                  "unknown",
 						"power_profile_setting":      "unknown",
+						"gcbdr_agent_running":        "false",
 					},
 				},
 			},
@@ -336,6 +338,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 					"data_disk_allocation_units": `[{"BlockSize":"unknown","Caption":"sda"}]`,
 					"local_ssd":                  `{"sda":"PERSISTENT-SSD"}`,
 					"power_profile_setting":      "High performance",
+					"gcbdr_agent_running":        "unknown",
 				}},
 			},
 		},
@@ -349,6 +352,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 					"data_disk_allocation_units": `[{"BlockSize":"unknown","Caption":"sda"}]`,
 					"local_ssd":                  `{"sda":"PERSISTENT-SSD"}`,
 					"power_profile_setting":      "High performance",
+					"gcbdr_agent_running":        "unknown",
 				}},
 			},
 		},
@@ -361,6 +365,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 					"data_disk_allocation_units": `[{"BlockSize":"unknown","Caption":"sda"}]`,
 					"local_ssd":                  `{"sda":"PERSISTENT-SSD"}`,
 					"power_profile_setting":      "balanced",
+					"gcbdr_agent_running":        "unknown",
 				}},
 			},
 		},
@@ -373,6 +378,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 					"data_disk_allocation_units": `[{"BlockSize":"unknown","Caption":"sda"}]`,
 					"local_ssd":                  `{"sda":"PERSISTENT-SSD"}`,
 					"power_profile_setting":      "unknown",
+					"gcbdr_agent_running":        "unknown",
 				}},
 			},
 		},
@@ -386,6 +392,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 						"data_disk_allocation_units": "unknown",
 						"local_ssd":                  "unknown",
 						"power_profile_setting":      "unknown",
+						"gcbdr_agent_running":        "false",
 					},
 				},
 			},
@@ -400,6 +407,7 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 						"data_disk_allocation_units": "unknown",
 						"local_ssd":                  "unknown",
 						"power_profile_setting":      "unknown",
+						"gcbdr_agent_running":        "unknown",
 					},
 				},
 			},
@@ -884,5 +892,42 @@ func TestFindPowerProfile_BadInput(t *testing.T) {
 				t.Errorf("findPowerProfile(%v) returned nil error, want error", tc.powerProfileFull)
 			}
 		})
+	}
+}
+
+func TestGcbdrAgentRunning(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmdOutput string
+		want      string
+		wantErr   bool
+	}{
+		{
+			name:      "success",
+			cmdOutput: "Active: active (running) since Wed 2024-05-29 19:34:01 UTC; 22h ago",
+			want:      "true",
+		},
+		{
+			name:      "failure - inactive",
+			cmdOutput: "Active: inactive (dead) since Thu 2024-05-30 17:38:02 UTC; 1s ago",
+			want:      "false",
+		},
+		{
+			name:      "failure - invalid cmdOutput",
+			cmdOutput: "any input without correct format",
+			want:      "",
+			wantErr:   true,
+		},
+	}
+	var c LinuxCollector
+	for _, tc := range tests {
+		got, err := c.gcbdrAgentRunning(tc.cmdOutput)
+		if gotErr := err != nil; gotErr != tc.wantErr {
+			t.Errorf("gcbdrAgentRunning(%q) returned an unexpected error: %v, wantErr: %v", tc.cmdOutput, err, tc.wantErr)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("gcbdrAgentRunning(%q) = %q, want: %q", tc.cmdOutput, got, tc.want)
+		}
 	}
 }

@@ -35,6 +35,7 @@ var allOSFields = []string{
 	internal.PowerProfileSettingRule,
 	internal.LocalSSDRule,
 	internal.DataDiskAllocationUnitsRule,
+	internal.GCBDRAgentRunning,
 }
 
 // CollectionOSFields returns all expected fields in OS collection
@@ -58,6 +59,7 @@ func MarkUnknownOsFields(details *[]internal.Details) error {
 			internal.PowerProfileSettingRule:     "unknown",
 			internal.LocalSSDRule:                "unknown",
 			internal.DataDiskAllocationUnitsRule: "unknown",
+			internal.GCBDRAgentRunning:           "unknown",
 		}
 		(*details)[0].Fields = append((*details)[0].Fields, fields)
 		return nil
