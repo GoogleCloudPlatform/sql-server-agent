@@ -11,7 +11,7 @@
 #>
 $ErrorActionPreference = 'Stop'
 $INSTALL_DIR = 'C:\Program Files\Google\google-cloud-sql-server-agent'
-$SVC_NAME = 'SQL Server Agent'
+$SVC_NAME = 'google-cloud-sql-server-agent'
 $SVC_NAME_EXE = 'google-cloud-sql-server-agent.exe'
 $MONITOR_TASK = 'google-cloud-sql-server-agent-monitor'
 $LOGS_DIR = "$INSTALL_DIR\logs"
