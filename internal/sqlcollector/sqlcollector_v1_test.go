@@ -92,7 +92,7 @@ func TestCollectMasterRules(t *testing.T) {
 					Query: "testQuery",
 				},
 			},
-			want: []internal.Details{},
+			want: nil,
 		},
 		{
 			name:    "empty result when rule.Fields() returned empty map",
@@ -124,8 +124,58 @@ func TestCollectMasterRules(t *testing.T) {
 					Query: "testQuery",
 				},
 			},
-			want:       []internal.Details{},
+			want:       nil,
 			queryError: true,
+		},
+		{
+			name:    "test rule instance_metrics returns proper os type",
+			timeout: 30,
+			delay:   0,
+
+			mockQueryRes: []*sqlmock.Rows{
+				sqlmock.NewRows([]string{"col1", "col2", "col3", "col4", "col5", "col6", "col7", "col8", "col9", "col10"}).AddRow("val1", "val2", "val3", "val4", "val5", "val6", "val7", "val8", "val9", "val10"),
+			},
+
+			rule: []internal.MasterRuleStruct{
+				{
+					Name:   "INSTANCE_METRICS",
+					Query:  "testQuery",
+					Fields: internal.MasterRules[8].Fields,
+				},
+			},
+			want: []internal.Details{
+				{
+					Name: "INSTANCE_METRICS",
+					Fields: []map[string]string{
+						map[string]string{
+							"cores_per_socket":   "unknown",
+							"cpu_count":          "unknown",
+							"edition":            "val3",
+							"hyperthread_ratio":  "unknown",
+							"numa_node_count":    "unknown",
+							"os":                 "linux",
+							"physical_memory_kb": "unknown",
+							"product_level":      "val2",
+							"product_version":    "val1",
+							"socket_count":       "unknown",
+							"virtual_memory_kb":  "unknown",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "empty result returned when query result is nil",
+			timeout:      30,
+			delay:        0,
+			mockQueryRes: []*sqlmock.Rows{sqlmock.NewRows(nil)},
+			rule: []internal.MasterRuleStruct{
+				{
+					Name:  "INSTANCE_METRICS",
+					Query: "testQuery",
+				},
+			},
+			want: nil,
 		},
 	}
 

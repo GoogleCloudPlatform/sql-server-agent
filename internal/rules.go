@@ -16,10 +16,6 @@ limitations under the License.
 
 package internal
 
-import (
-	"runtime"
-)
-
 const (
 	// PowerProfileSettingRule used for power profile of machine.
 	PowerProfileSettingRule = "power_profile_setting"
@@ -242,7 +238,7 @@ var MasterRules = []MasterRuleStruct{
 			res := []map[string]string{}
 			for _, f := range fields {
 				res = append(res, map[string]string{
-					"os":                 runtime.GOOS,
+					"os":                 HandleNilString(f[10]),
 					"product_version":    HandleNilString(f[0]),
 					"product_level":      HandleNilString(f[1]),
 					"edition":            HandleNilString(f[2]),

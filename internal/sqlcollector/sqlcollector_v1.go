@@ -45,7 +45,7 @@ func NewV1(driver, conn string, windows bool, usageMetricsLogger agentstatus.Age
 // CollectMasterRules collects master rules from target sql server.
 // Master rules are defined in rules.go file.
 func (c *V1) CollectMasterRules(ctx context.Context, timeout time.Duration) []internal.Details {
-	details := []internal.Details{}
+	var details []internal.Details
 	for _, rule := range internal.MasterRules {
 		func() {
 			ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
@@ -55,6 +55,20 @@ func (c *V1) CollectMasterRules(ctx context.Context, timeout time.Duration) []in
 				log.Logger.Errorw("Failed to run sql query", "query", rule.Query, "error", err)
 				c.usageMetricsLogger.Error(agentstatus.SQLQueryExecutionError)
 				return
+			}
+			// queryResult is a 2d array and for most rules there is only one row in the query result.
+			// For InstanceMetrics, the query result is in one row and we need to append the os type to the row in queryResult.
+			if rule.Name == "INSTANCE_METRICS" {
+				if queryResult == nil || len(queryResult) == 0 {
+					log.Logger.Errorw("Empty query result", "query", rule.Query)
+					c.usageMetricsLogger.Error(agentstatus.SQLQueryExecutionError)
+					return
+				}
+				os := "windows"
+				if !c.windows {
+					os = "linux"
+				}
+				queryResult[0] = append(queryResult[0], os)
 			}
 			details = append(details, internal.Details{
 				Name:   rule.Name,

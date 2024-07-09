@@ -17,7 +17,6 @@ limitations under the License.
 package internal
 
 import (
-	"runtime"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -185,11 +184,12 @@ func TestFields(t *testing.T) {
 					int64(0),
 					int64(0),
 					int64(0),
+					"windows",
 				},
 			},
 			want: []map[string]string{
 				{
-					"os":                 runtime.GOOS,
+					"os":                 "windows",
 					"product_version":    "test_product_version",
 					"product_level":      "test_product_level",
 					"edition":            "test_edition",
