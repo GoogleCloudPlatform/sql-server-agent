@@ -83,7 +83,7 @@ func NewAgentProperties(name, version string, logUsageMetrics bool) *usagemetric
 	return &usagemetrics.AgentProperties{
 		Name:            name,
 		Version:         version,
-		LogPrefix:       "wlm-sqlserver-eng",
+		LogUsagePrefix:  "wlm-sqlserver-eng",
 		LogUsageMetrics: logUsageMetrics,
 	}
 }
