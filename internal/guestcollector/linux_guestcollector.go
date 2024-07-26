@@ -469,6 +469,12 @@ func (c *LinuxCollector) CollectGuestRules(ctx context.Context, timeout time.Dur
 			log.Logger.Debugw("Remoterunner is nil. Remote collection attempted when ssh keys aren't set up correctly. Check customer support documentation.")
 			return details
 		}
+		defer func() {
+			log.Logger.Debug("Closing the remote runner client")
+			if err := c.remoteRunner.Close(); err != nil {
+				log.Logger.Errorw("Failed to close the client in remote runner", "error", err)
+			}
+		}()
 	}
 
 	for _, rule := range CollectionOSFields() {

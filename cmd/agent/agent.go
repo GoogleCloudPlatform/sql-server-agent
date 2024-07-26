@@ -311,6 +311,7 @@ func AddPhysicalDriveRemoteLinux(details []internal.Details, cred *configuration
 		UsageMetricsLogger.Error(agentstatus.SSHDialError)
 		return
 	}
+	defer r.Close()
 	for _, detail := range details {
 		if detail.Name != "DB_LOG_DISK_SEPARATION" {
 			continue

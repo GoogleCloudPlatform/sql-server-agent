@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"testing"
 
@@ -47,6 +48,46 @@ type mockClient struct {
 
 func (m *mockClient) NewSession() (*ssh.Session, error) {
 	return &ssh.Session{Stdin: bytes.NewBufferString(m.input)}, nil
+}
+
+func (m *mockClient) User() string {
+	return ""
+}
+
+func (m *mockClient) SessionID() []byte {
+	return nil
+}
+
+func (m *mockClient) ClientVersion() []byte {
+	return nil
+}
+
+func (m *mockClient) ServerVersion() []byte {
+	return nil
+}
+
+func (m *mockClient) RemoteAddr() net.Addr {
+	return nil
+}
+
+func (m *mockClient) LocalAddr() net.Addr {
+	return nil
+}
+
+func (m *mockClient) SendRequest(name string, wantReply bool, payload []byte) (bool, []byte, error) {
+	return false, nil, nil
+}
+
+func (m *mockClient) OpenChannel(name string, data []byte) (ssh.Channel, <-chan *ssh.Request, error) {
+	return nil, nil, nil
+}
+
+func (m *mockClient) Close() error {
+	return nil
+}
+
+func (m *mockClient) Wait() error {
+	return nil
 }
 
 func newMockClient(outputErr bool) mockClient {
@@ -84,6 +125,8 @@ func (m *mockRemote) CreateClient() error {
 }
 
 func (m *mockRemote) SetupKeys(string) error { return nil }
+
+func (m *mockRemote) Close() error { return nil }
 
 type mockSession struct {
 	outputErr bool

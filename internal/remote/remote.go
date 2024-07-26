@@ -35,6 +35,8 @@ import (
 
 // SSHClientInterface abstracts the client struct from ssh package
 type SSHClientInterface interface {
+	ssh.Conn
+
 	NewSession() (*ssh.Session, error)
 }
 
@@ -50,6 +52,7 @@ type Executor interface {
 	CreateClient() error
 	CreateSession(string) (SSHSessionInterface, error)
 	Run(string, SSHSessionInterface) (string, error)
+	Close() error
 }
 
 // remote contains the key for remote ssh'ing
@@ -174,6 +177,10 @@ func (r *remote) CreateSession(input string) (SSHSessionInterface, error) {
 		session.Stdin = bytes.NewBufferString(input)
 	}
 	return session, nil
+}
+
+func (r *remote) Close() error {
+	return r.client.Close()
 }
 
 // Run runs a remote ssh command ex: output, err := remoteRun("root", "MY_IP", "privateKey", "22", "ls -l")

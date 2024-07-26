@@ -130,6 +130,8 @@ func (m *mockRemote) CreateClient() error {
 
 func (m *mockRemote) SetupKeys(string) error { return nil }
 
+func (m *mockRemote) Close() error { return nil }
+
 type mockSession struct {
 	outputErr bool
 	input     string
