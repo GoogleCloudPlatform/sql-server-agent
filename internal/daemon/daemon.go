@@ -32,6 +32,8 @@ type program struct {
 }
 
 func (p *program) Start(s service.Service) error {
+	log.Logger.Info("Service starts.")
+
 	if p.osCollection != nil {
 		go p.osCollection()
 	}
@@ -58,15 +60,21 @@ func (p *program) Stop(s service.Service) error {
 	return nil
 }
 
-func (p *program) Install(s service.Service) error {
+func install(s service.Service, statusLogger agentstatus.AgentStatus) error {
+	if err := s.Install(); err != nil {
+		return err
+	}
 	log.Logger.Info("Service installs.")
-	p.statusLogger.Installed()
+	statusLogger.Installed()
 	return nil
 }
 
-func (p *program) Uninstall(s service.Service) error {
+func uninstall(s service.Service, statusLogger agentstatus.AgentStatus) error {
+	if err := s.Uninstall(); err != nil {
+		return err
+	}
 	log.Logger.Info("Service uninstalls.")
-	p.statusLogger.Uninstalled()
+	statusLogger.Uninstalled()
 	return nil
 }
 
@@ -97,11 +105,15 @@ func CreateService(osCollection func(), sqlCollection func(), sc *service.Config
 }
 
 // Control wraps the function from service package and adds the supported action "run" to the service.
-func Control(s service.Service, action string) error {
+func Control(s service.Service, action string, statusLogger agentstatus.AgentStatus) error {
 	var err error
 	switch action {
 	case "run":
 		err = s.Run()
+	case "install":
+		err = install(s, statusLogger)
+	case "uninstall":
+		err = uninstall(s, statusLogger)
 	default:
 		err = service.Control(s, action)
 	}

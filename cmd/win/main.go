@@ -100,7 +100,7 @@ func main() {
 		log.Logger.Fatalw("Failed to create the service", "error", err)
 	}
 
-	if err = daemon.Control(s, flags.Action); err != nil {
+	if err = daemon.Control(s, flags.Action, agent.UsageMetricsLogger); err != nil {
 		log.Logger.Fatal(err)
 	}
 }
