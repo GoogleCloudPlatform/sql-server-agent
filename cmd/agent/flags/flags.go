@@ -26,11 +26,13 @@ import (
 
 // AgentFlags .
 type AgentFlags struct {
-	Action  string
-	Onetime bool
-	version bool
-	help    bool
-	h       bool
+	Action   string
+	Onetime  bool
+	Address  string
+	Protocol string
+	version  bool
+	help     bool
+	h        bool
 }
 
 // NewAgentFlags initialize flags and return the reference of struct agentFlags.
@@ -40,17 +42,22 @@ func NewAgentFlags() *AgentFlags {
 	version := flag.Bool("agent_version", false, "Display the version of the agent.")
 	help := flag.Bool("help", false, "Display the usage of each flag.")
 	h := flag.Bool("h", false, "Display the usage of each flag.")
+	// protocol and address are used by guest agent.
+	protocol := flag.String("protocol", "", "protocol to use uds/tcp")
+	address := flag.String("address", "", "address to start server listening on")
 
 	if !flag.Parsed() {
 		flag.Parse()
 	}
 
 	return &AgentFlags{
-		Action:  *action,
-		Onetime: *onetime,
-		version: *version,
-		help:    *help,
-		h:       *h,
+		Action:   *action,
+		Onetime:  *onetime,
+		Address:  *address,
+		Protocol: *protocol,
+		version:  *version,
+		help:     *help,
+		h:        *h,
 	}
 }
 
@@ -67,6 +74,7 @@ func (af *AgentFlags) Execute() (string, bool) {
 	if af.Onetime {
 		return "", true
 	}
+	// TODO - LCM integration.
 	if af.Action == "" {
 		return af.usage(), false
 	}
