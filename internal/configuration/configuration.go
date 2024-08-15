@@ -27,6 +27,37 @@ import (
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
 )
 
+var (
+	defaultConfig = &configpb.Configuration{
+		CollectionConfiguration: &configpb.CollectionConfiguration{
+			CollectGuestOsMetrics:                     true,
+			GuestOsMetricsCollectionIntervalInSeconds: 3600,
+			CollectSqlMetrics:                         true,
+			SqlMetricsCollectionIntervalInSeconds:     3600,
+		},
+		CredentialConfiguration: []*configpb.CredentialConfiguration{
+			&configpb.CredentialConfiguration{
+				SqlConfigurations: []*configpb.CredentialConfiguration_SqlCredentials{
+					&configpb.CredentialConfiguration_SqlCredentials{
+						Host:       ".",
+						UserName:   "",
+						SecretName: "",
+						PortNumber: 1433,
+					},
+				},
+				GuestConfigurations: &configpb.CredentialConfiguration_LocalCollection{
+					LocalCollection: true,
+				},
+			},
+		},
+		LogLevel:                 "INFO",
+		LogToCloud:               true,
+		CollectionTimeoutSeconds: 10,
+		MaxRetries:               5,
+		RetryIntervalInSeconds:   3600,
+	}
+)
+
 // SQLConfig .
 type SQLConfig struct {
 	Host       string
@@ -52,31 +83,7 @@ func LoadConfiguration(p string) (*configpb.Configuration, error) {
 	// Read config file from file system.
 	b, err := os.ReadFile(filepath.Join(filepath.Dir(p), "configuration.json"))
 	if err != nil {
-		return &configpb.Configuration{
-			CollectionConfiguration: &configpb.CollectionConfiguration{
-				CollectGuestOsMetrics:                     true,
-				CollectSqlMetrics:                         true,
-				GuestOsMetricsCollectionIntervalInSeconds: 3600,
-				SqlMetricsCollectionIntervalInSeconds:     3600,
-			},
-			CredentialConfiguration: []*configpb.CredentialConfiguration{
-				&configpb.CredentialConfiguration{
-					SqlConfigurations: []*configpb.CredentialConfiguration_SqlCredentials{
-						&configpb.CredentialConfiguration_SqlCredentials{
-							Host:       "localhost",
-							UserName:   "",
-							SecretName: "",
-							PortNumber: 1433,
-						},
-					},
-				},
-			},
-			LogLevel:                 "INFO",
-			LogToCloud:               true,
-			CollectionTimeoutSeconds: 10,
-			MaxRetries:               5,
-			RetryIntervalInSeconds:   3600,
-		}, fmt.Errorf("failed to load the configuration file. filepath: %v, error: %v", p, err)
+		return defaultConfig, fmt.Errorf("failed to load the configuration file. filepath: %v, error: %v", p, err)
 	}
 	cfg := configpb.Configuration{}
 	if err := protojson.Unmarshal(b, &cfg); err != nil {

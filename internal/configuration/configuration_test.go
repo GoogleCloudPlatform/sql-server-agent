@@ -72,32 +72,8 @@ func TestLoadConfiguration(t *testing.T) {
 		{
 			name:        "read file error-return default configuration",
 			readFileErr: true,
-			want: &configpb.Configuration{
-				CollectionConfiguration: &configpb.CollectionConfiguration{
-					CollectGuestOsMetrics:                     true,
-					GuestOsMetricsCollectionIntervalInSeconds: 3600,
-					CollectSqlMetrics:                         true,
-					SqlMetricsCollectionIntervalInSeconds:     3600,
-				},
-				CredentialConfiguration: []*configpb.CredentialConfiguration{
-					&configpb.CredentialConfiguration{
-						SqlConfigurations: []*configpb.CredentialConfiguration_SqlCredentials{
-							&configpb.CredentialConfiguration_SqlCredentials{
-								Host:       "localhost",
-								UserName:   "",
-								SecretName: "",
-								PortNumber: 1433,
-							},
-						},
-					},
-				},
-				LogLevel:                 "INFO",
-				CollectionTimeoutSeconds: 10,
-				LogToCloud:               true,
-				MaxRetries:               5,
-				RetryIntervalInSeconds:   3600,
-			},
-			wantErr: true,
+			want:        defaultConfig,
+			wantErr:     true,
 		},
 	}
 	for _, tc := range testcases {
