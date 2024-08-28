@@ -26,13 +26,15 @@ import (
 
 // AgentFlags .
 type AgentFlags struct {
-	Action   string
-	Onetime  bool
-	Address  string
-	Protocol string
-	version  bool
-	help     bool
-	h        bool
+	Action       string
+	Onetime      bool
+	Address      string
+	Protocol     string
+	errorLogFile string
+	version      bool
+	help         bool
+	h            bool
+	lcmReady     bool
 }
 
 // NewAgentFlags initialize flags and return the reference of struct agentFlags.
@@ -42,22 +44,24 @@ func NewAgentFlags() *AgentFlags {
 	version := flag.Bool("agent_version", false, "Display the version of the agent.")
 	help := flag.Bool("help", false, "Display the usage of each flag.")
 	h := flag.Bool("h", false, "Display the usage of each flag.")
-	// protocol and address are used by guest agent.
+	// protocol, address and errorlogfile are used by guest agent.
 	protocol := flag.String("protocol", "", "protocol to use uds/tcp")
 	address := flag.String("address", "", "address to start server listening on")
+	errorLogfile := flag.String("errorlogfile", "", "file to write error logs to")
 
 	if !flag.Parsed() {
 		flag.Parse()
 	}
 
 	return &AgentFlags{
-		Action:   *action,
-		Onetime:  *onetime,
-		Address:  *address,
-		Protocol: *protocol,
-		version:  *version,
-		help:     *help,
-		h:        *h,
+		Action:       *action,
+		Onetime:      *onetime,
+		Address:      *address,
+		Protocol:     *protocol,
+		errorLogFile: *errorLogfile,
+		version:      *version,
+		help:         *help,
+		h:            *h,
 	}
 }
 
