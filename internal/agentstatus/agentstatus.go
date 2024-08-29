@@ -79,11 +79,11 @@ func NewUsageMetricsLogger(agentProps *usagemetrics.AgentProperties, cloudProps 
 }
 
 // NewAgentProperties returns the pointer of the new instance usagemetrics.AgentProperties.
-func NewAgentProperties(name, version string, logUsageMetrics bool) *usagemetrics.AgentProperties {
+func NewAgentProperties(name, version, prefix string, logUsageMetrics bool) *usagemetrics.AgentProperties {
 	return &usagemetrics.AgentProperties{
 		Name:            name,
 		Version:         version,
-		LogUsagePrefix:  "wlm-sqlserver-eng",
+		LogUsagePrefix:  prefix,
 		LogUsageMetrics: logUsageMetrics,
 	}
 }

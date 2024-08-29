@@ -31,7 +31,7 @@ import (
 )
 
 var fakeCloudProperties = agentstatus.NewCloudProperties("testProjectID", "testZone", "testInstanceName", "testProjectNumber", "testImage")
-var fakeAgentProperties = agentstatus.NewAgentProperties("testName", "testVersion", false)
+var fakeAgentProperties = agentstatus.NewAgentProperties("testName", "testVersion", "testPrefix", false)
 var fakeUsageMetricsLogger = agentstatus.NewUsageMetricsLogger(fakeAgentProperties, fakeCloudProperties, clockwork.NewRealClock(), []string{})
 
 func TestCollectMasterRules(t *testing.T) {

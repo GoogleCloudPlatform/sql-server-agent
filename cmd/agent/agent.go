@@ -54,10 +54,12 @@ const (
 	Description = "Google Cloud Agent for SQL Server."
 	// ExperimentalMode .
 	ExperimentalMode = internal.ExperimentalMode
-	driver           = "sqlserver"
-	commandFind      = `sudo find %s -type f -iname "%s" -print`
-	commandDf        = "sudo df --output=target %s | tail -n 1"
-	commandMount     = "mount | grep sd"
+	// AgentUsageLogPrefix .
+	AgentUsageLogPrefix = "wlm-sqlserver-eng"
+	driver              = "sqlserver"
+	commandFind         = `sudo find %s -type f -iname "%s" -print`
+	commandDf           = "sudo df --output=target %s | tail -n 1"
+	commandMount        = "mount | grep sd"
 )
 
 // CollectionType represents the enums of collection types.
@@ -82,11 +84,11 @@ type InstanceProperties struct {
 }
 
 // UsageMetricsLogger logs usage metrics.
-var UsageMetricsLogger agentstatus.AgentStatus = UsageMetricsLoggerInit(false)
+var UsageMetricsLogger agentstatus.AgentStatus = UsageMetricsLoggerInit(AgentUsageLogPrefix, false)
 
 // UsageMetricsLoggerInit initializes and returns usage metrics logger.
-func UsageMetricsLoggerInit(logUsage bool) agentstatus.AgentStatus {
-	ap := agentstatus.NewAgentProperties(ServiceName, internal.AgentVersion, logUsage)
+func UsageMetricsLoggerInit(logPrefix string, logUsage bool) agentstatus.AgentStatus {
+	ap := agentstatus.NewAgentProperties(ServiceName, internal.AgentVersion, logPrefix, logUsage)
 	sip := SourceInstanceProperties()
 	cp := agentstatus.NewCloudProperties(sip.ProjectID, sip.Zone, sip.Instance, sip.ProjectNumber, sip.Image)
 	return agentstatus.NewUsageMetricsLogger(ap, cp, clockwork.NewRealClock(), []string{})
@@ -273,7 +275,7 @@ func CollectionService(p string, collection func(cfg *configpb.Configuration, on
 			continue
 		}
 		// Init UsageMetricsLogger for each collection cycle.
-		UsageMetricsLogger = UsageMetricsLoggerInit(!cfg.GetDisableLogUsage())
+		UsageMetricsLogger = UsageMetricsLoggerInit(AgentUsageLogPrefix, !cfg.GetDisableLogUsage())
 		// Set onetime to false for running collection as service
 		if err := collection(cfg, false); err != nil {
 			log.Logger.Errorw("Failed to run collection", "collection type", collectionType, "error", err)
