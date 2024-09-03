@@ -40,6 +40,9 @@ const (
 	// AgentVersion is the version of the agent.
 	AgentVersion = `1.2`
 	
+
+	// ServiceName .
+	ServiceName = "google-cloud-sql-server-agent"
 )
 
 // DiskTypeEnum enum used for disktypes to keep linux and windows collection consistent .

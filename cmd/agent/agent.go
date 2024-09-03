@@ -47,7 +47,7 @@ import (
 
 const (
 	// ServiceName .
-	ServiceName = "google-cloud-sql-server-agent"
+	ServiceName = internal.ServiceName
 	// ServiceDisplayName .
 	ServiceDisplayName = "Google Cloud Agent for SQL Server"
 	// Description .
@@ -86,16 +86,18 @@ type InstanceProperties struct {
 // UsageMetricsLogger logs usage metrics.
 var UsageMetricsLogger agentstatus.AgentStatus = UsageMetricsLoggerInit(AgentUsageLogPrefix, false)
 
+// SIP is the source instance properties.
+var SIP InstanceProperties = sourceInstanceProperties()
+
 // UsageMetricsLoggerInit initializes and returns usage metrics logger.
 func UsageMetricsLoggerInit(logPrefix string, logUsage bool) agentstatus.AgentStatus {
-	ap := agentstatus.NewAgentProperties(ServiceName, internal.AgentVersion, logPrefix, logUsage)
-	sip := SourceInstanceProperties()
-	cp := agentstatus.NewCloudProperties(sip.ProjectID, sip.Zone, sip.Instance, sip.ProjectNumber, sip.Image)
+	ap := agentstatus.NewAgentProperties(internal.ServiceName, internal.AgentVersion, logPrefix, logUsage)
+	cp := agentstatus.NewCloudProperties(SIP.ProjectID, SIP.Zone, SIP.Instance, SIP.ProjectNumber, SIP.Image)
 	return agentstatus.NewUsageMetricsLogger(ap, cp, clockwork.NewRealClock(), []string{})
 }
 
-// SourceInstanceProperties returns properties of the instance the agent is running on.
-func SourceInstanceProperties() InstanceProperties {
+// sourceInstanceProperties returns properties of the instance the agent is running on.
+func sourceInstanceProperties() InstanceProperties {
 	properties := metadataserver.CloudPropertiesWithRetry(backoff.NewConstantBackOff(30 * time.Second))
 	location := string(properties.GetZone()[0:strings.LastIndex(properties.GetZone(), "-")])
 	name := fmt.Sprintf("projects/%s/locations/%s", properties.GetProjectId(), location)
@@ -119,7 +121,7 @@ func Init() (*flags.AgentFlags, string, bool) {
 
 // LoggingSetup initialize the agent logging level.
 func LoggingSetup(ctx context.Context, logPrefix string, cfg *configpb.Configuration) {
-	agentshared.LoggingSetup(ctx, logPrefix, cfg.GetLogLevel(), SourceInstanceProperties().ProjectID, cfg.GetLogToCloud())
+	agentshared.LoggingSetup(ctx, logPrefix, cfg.GetLogLevel(), SIP.ProjectID, cfg.GetLogToCloud())
 }
 
 // LoggingSetupDefault wraps LoggingSetupDefault function from agent_shared.go.
@@ -139,8 +141,7 @@ func InitCollection(ctx context.Context) (*wlm.WLM, error) {
 
 // CheckAgentStatus checks agent status. Return error if it failed to activate.
 func CheckAgentStatus(wlm wlm.WorkloadManagerService, path string) error {
-	ip := SourceInstanceProperties()
-	return agentshared.CheckAgentStatus(activation.NewV1(), wlm, filepath.Join(filepath.Dir(path), "google-cloud-sql-server-agent.activated"), ip.Name, ip.ProjectID, ip.Instance, ip.InstanceID)
+	return agentshared.CheckAgentStatus(activation.NewV1(), wlm, filepath.Join(filepath.Dir(path), "google-cloud-sql-server-agent.activated"), SIP.Name, SIP.ProjectID, SIP.Instance, SIP.InstanceID)
 }
 
 // LoadConfiguration loads configuration from given path.

@@ -128,7 +128,7 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 		return err
 	}
 
-	sourceInstanceProps := agent.SourceInstanceProperties()
+	sourceInstanceProps := agent.SIP
 	targetInstanceProps := sourceInstanceProps
 	disks, err := agent.AllDisks(ctx, targetInstanceProps)
 	if err != nil {
@@ -177,7 +177,7 @@ func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Co
 	log.Logger.Info("Sql rules collection starts.")
 	for _, credentialCfg := range cfg.GetCredentialConfiguration() {
 		validationDetails := agent.InitDetails()
-		sourceInstanceProps := agent.SourceInstanceProperties()
+		sourceInstanceProps := agent.SIP
 		guestCfg := agent.GuestConfigFromCredential(credentialCfg)
 		for _, sqlCfg := range agent.SQLConfigFromCredential(credentialCfg) {
 			if err := agent.ValidateCredCfgSQL(false, !guestCfg.LinuxRemote, sqlCfg, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {

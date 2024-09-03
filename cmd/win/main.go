@@ -122,7 +122,7 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 		}
 	}
 
-	sourceInstanceProps := agent.SourceInstanceProperties()
+	sourceInstanceProps := agent.SIP
 	timeout := time.Duration(cfg.GetCollectionTimeoutSeconds()) * time.Second
 	interval := time.Duration(cfg.GetRetryIntervalInSeconds()) * time.Second
 
@@ -215,7 +215,7 @@ func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Co
 		}
 	}
 
-	sourceInstanceProps := agent.SourceInstanceProperties()
+	sourceInstanceProps := agent.SIP
 	timeout := time.Duration(cfg.GetCollectionTimeoutSeconds()) * time.Second
 	interval := time.Duration(cfg.GetRetryIntervalInSeconds()) * time.Second
 
