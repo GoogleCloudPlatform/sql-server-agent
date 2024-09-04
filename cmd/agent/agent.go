@@ -86,7 +86,7 @@ type InstanceProperties struct {
 }
 
 // UsageMetricsLogger logs usage metrics.
-var UsageMetricsLogger agentstatus.AgentStatus = UsageMetricsLoggerInit(internal.ServiceName, internal.AgentVersion, internal.AgentUsageLogPrefix, false)
+var UsageMetricsLogger agentstatus.AgentStatus = UsageMetricsLoggerInit(internal.ServiceName, internal.AgentVersion, internal.AgentUsageLogPrefix, true)
 
 // SIP is the source instance properties.
 var SIP InstanceProperties = sourceInstanceProperties()
