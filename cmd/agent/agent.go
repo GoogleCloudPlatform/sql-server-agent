@@ -55,11 +55,13 @@ const (
 	// ExperimentalMode .
 	ExperimentalMode = internal.ExperimentalMode
 	// AgentUsageLogPrefix .
-	AgentUsageLogPrefix = "wlm-sqlserver-eng"
-	driver              = "sqlserver"
-	commandFind         = `sudo find %s -type f -iname "%s" -print`
-	commandDf           = "sudo df --output=target %s | tail -n 1"
-	commandMount        = "mount | grep sd"
+	AgentUsageLogPrefix = internal.AgentUsageLogPrefix
+	// AgentVersion .
+	AgentVersion = internal.AgentVersion
+	driver       = "sqlserver"
+	commandFind  = `sudo find %s -type f -iname "%s" -print`
+	commandDf    = "sudo df --output=target %s | tail -n 1"
+	commandMount = "mount | grep sd"
 )
 
 // CollectionType represents the enums of collection types.
@@ -84,14 +86,14 @@ type InstanceProperties struct {
 }
 
 // UsageMetricsLogger logs usage metrics.
-var UsageMetricsLogger agentstatus.AgentStatus = UsageMetricsLoggerInit(AgentUsageLogPrefix, false)
+var UsageMetricsLogger agentstatus.AgentStatus = UsageMetricsLoggerInit(internal.ServiceName, internal.AgentVersion, internal.AgentUsageLogPrefix, false)
 
 // SIP is the source instance properties.
 var SIP InstanceProperties = sourceInstanceProperties()
 
 // UsageMetricsLoggerInit initializes and returns usage metrics logger.
-func UsageMetricsLoggerInit(logPrefix string, logUsage bool) agentstatus.AgentStatus {
-	ap := agentstatus.NewAgentProperties(internal.ServiceName, internal.AgentVersion, logPrefix, logUsage)
+func UsageMetricsLoggerInit(logName, logVersion, logPrefix string, logUsage bool) agentstatus.AgentStatus {
+	ap := agentstatus.NewAgentProperties(logName, logVersion, logPrefix, logUsage)
 	cp := agentstatus.NewCloudProperties(SIP.ProjectID, SIP.Zone, SIP.Instance, SIP.ProjectNumber, SIP.Image)
 	return agentstatus.NewUsageMetricsLogger(ap, cp, clockwork.NewRealClock(), []string{})
 }
@@ -276,7 +278,7 @@ func CollectionService(p string, collection func(cfg *configpb.Configuration, on
 			continue
 		}
 		// Init UsageMetricsLogger for each collection cycle.
-		UsageMetricsLogger = UsageMetricsLoggerInit(AgentUsageLogPrefix, !cfg.GetDisableLogUsage())
+		UsageMetricsLogger = UsageMetricsLoggerInit(internal.ServiceName, internal.AgentVersion, internal.AgentUsageLogPrefix, !cfg.GetDisableLogUsage())
 		// Set onetime to false for running collection as service
 		if err := collection(cfg, false); err != nil {
 			log.Logger.Errorw("Failed to run collection", "collection type", collectionType, "error", err)

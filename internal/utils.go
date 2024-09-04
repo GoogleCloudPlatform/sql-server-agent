@@ -43,6 +43,9 @@ const (
 
 	// ServiceName .
 	ServiceName = "google-cloud-sql-server-agent"
+
+	// AgentUsageLogPrefix .
+	AgentUsageLogPrefix = "wlm-sqlserver-eng"
 )
 
 // DiskTypeEnum enum used for disktypes to keep linux and windows collection consistent .
