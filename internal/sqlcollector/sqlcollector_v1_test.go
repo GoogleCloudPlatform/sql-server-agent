@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jonboulle/clockwork"
 	"github.com/google/go-cmp/cmp"
 	_ "github.com/microsoft/go-mssqldb"
 	"github.com/DATA-DOG/go-sqlmock"
@@ -32,7 +31,7 @@ import (
 
 var fakeCloudProperties = agentstatus.NewCloudProperties("testProjectID", "testZone", "testInstanceName", "testProjectNumber", "testImage")
 var fakeAgentProperties = agentstatus.NewAgentProperties("testName", "testVersion", "testPrefix", false)
-var fakeUsageMetricsLogger = agentstatus.NewUsageMetricsLogger(fakeAgentProperties, fakeCloudProperties, clockwork.NewRealClock(), []string{})
+var fakeUsageMetricsLogger = agentstatus.NewUsageMetricsLogger(fakeAgentProperties, fakeCloudProperties, []string{})
 
 func TestCollectMasterRules(t *testing.T) {
 	testcases := []struct {

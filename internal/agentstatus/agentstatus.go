@@ -18,6 +18,7 @@ limitations under the License.
 package agentstatus
 
 import (
+	"github.com/jonboulle/clockwork"
 	"github.com/GoogleCloudPlatform/sapagent/shared/usagemetrics"
 )
 
@@ -74,8 +75,8 @@ const (
 )
 
 // NewUsageMetricsLogger wraps NewLogger function from usagemetrics package.
-func NewUsageMetricsLogger(agentProps *usagemetrics.AgentProperties, cloudProps *usagemetrics.CloudProperties, timeSource usagemetrics.TimeSource, projectExclusions []string) *usagemetrics.Logger {
-	return usagemetrics.NewLogger(agentProps, cloudProps, timeSource, projectExclusions)
+func NewUsageMetricsLogger(agentProps *usagemetrics.AgentProperties, cloudProps *usagemetrics.CloudProperties, projectExclusions []string) *usagemetrics.Logger {
+	return usagemetrics.NewLogger(agentProps, cloudProps, clockwork.NewRealClock(), projectExclusions)
 }
 
 // NewAgentProperties returns the pointer of the new instance usagemetrics.AgentProperties.

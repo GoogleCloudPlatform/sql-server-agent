@@ -26,7 +26,6 @@ import (
 	"time"
 
 	backoff "github.com/cenkalti/backoff/v4"
-	"github.com/jonboulle/clockwork"
 	"github.com/GoogleCloudPlatform/sapagent/shared/gce"
 	"github.com/GoogleCloudPlatform/sapagent/shared/gce/metadataserver"
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
@@ -95,7 +94,7 @@ var SIP InstanceProperties = sourceInstanceProperties()
 func UsageMetricsLoggerInit(logName, logVersion, logPrefix string, logUsage bool) agentstatus.AgentStatus {
 	ap := agentstatus.NewAgentProperties(logName, logVersion, logPrefix, logUsage)
 	cp := agentstatus.NewCloudProperties(SIP.ProjectID, SIP.Zone, SIP.Instance, SIP.ProjectNumber, SIP.Image)
-	return agentstatus.NewUsageMetricsLogger(ap, cp, clockwork.NewRealClock(), []string{})
+	return agentstatus.NewUsageMetricsLogger(ap, cp, []string{})
 }
 
 // sourceInstanceProperties returns properties of the instance the agent is running on.
