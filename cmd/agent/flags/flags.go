@@ -21,24 +21,32 @@ import (
 	"fmt"
 
 	"flag"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
 )
 
 // AgentFlags .
 type AgentFlags struct {
-	Action       string
-	Onetime      bool
-	Address      string
-	Protocol     string
-	errorLogFile string
-	version      bool
-	help         bool
-	h            bool
-	lcmReady     bool
+	Action        string
+	Onetime       bool
+	Address       string
+	Protocol      string
+	errorLogFile  string
+	logName       string
+	logStatus     string
+	logVersion    string
+	version       bool
+	help          bool
+	h             bool
+	projectID     string
+	zone          string
+	instance      string
+	projectNumber string
+	image         string
 }
 
 // NewAgentFlags initialize flags and return the reference of struct agentFlags.
-func NewAgentFlags() *AgentFlags {
+func NewAgentFlags(projectID, zone, instance, projectNumber, image string) *AgentFlags {
 	action := flag.String("action", "", "Action for running the agent.")
 	onetime := flag.Bool("onetime", false, "Onetime mode for the agent.")
 	version := flag.Bool("agent_version", false, "Display the version of the agent.")
@@ -48,20 +56,31 @@ func NewAgentFlags() *AgentFlags {
 	protocol := flag.String("protocol", "", "protocol to use uds/tcp")
 	address := flag.String("address", "", "address to start server listening on")
 	errorLogfile := flag.String("errorlogfile", "", "file to write error logs to")
+	logStatus := flag.String("logstatus", "", "log usage status")
+	logVersion := flag.String("logversion", "", "log usage version")
+	logName := flag.String("logname", "", "name of the log type")
 
 	if !flag.Parsed() {
 		flag.Parse()
 	}
 
 	return &AgentFlags{
-		Action:       *action,
-		Onetime:      *onetime,
-		Address:      *address,
-		Protocol:     *protocol,
-		errorLogFile: *errorLogfile,
-		version:      *version,
-		help:         *help,
-		h:            *h,
+		Action:        *action,
+		Onetime:       *onetime,
+		Address:       *address,
+		Protocol:      *protocol,
+		errorLogFile:  *errorLogfile,
+		version:       *version,
+		help:          *help,
+		h:             *h,
+		logStatus:     *logStatus,
+		logVersion:    *logVersion,
+		logName:       *logName,
+		projectID:     projectID,
+		zone:          zone,
+		instance:      instance,
+		projectNumber: projectNumber,
+		image:         image,
 	}
 }
 
@@ -75,6 +94,9 @@ func (af *AgentFlags) Execute() (string, bool) {
 	if af.version {
 		return fmt.Sprintf("Google Cloud SQL Server Agent version: %v.", internal.AgentVersion), false
 	}
+	if af.logStatus != "" {
+		return af.status()
+	}
 	if af.Onetime {
 		return "", true
 	}
@@ -87,4 +109,17 @@ func (af *AgentFlags) Execute() (string, bool) {
 
 func (af *AgentFlags) usage() string {
 	return `Usage: google-cloud-sql-server-agent -(h|agent_version|onetime)`
+}
+
+func (af *AgentFlags) status() (string, bool) {
+	if af.logName == "" {
+		return "Please specify the name of the log -logname.", false
+	}
+	if af.logVersion == "" {
+		return "Please specify the version of the log -logversion.", false
+	}
+	ap := agentstatus.NewAgentProperties(af.logName, af.logVersion, internal.AgentUsageLogPrefix, true)
+	cp := agentstatus.NewCloudProperties(af.projectID, af.zone, af.instance, af.projectNumber, af.image)
+	agentstatus.NewUsageMetricsLogger(ap, cp, []string{}).LogStatus(agentstatus.Status(af.logStatus), "")
+	return "", false
 }

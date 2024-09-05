@@ -115,7 +115,7 @@ func sourceInstanceProperties() InstanceProperties {
 
 // Init parses flags and execute if certain flags are enabled.
 func Init() (*flags.AgentFlags, string, bool) {
-	f := flags.NewAgentFlags()
+	f := flags.NewAgentFlags(SIP.ProjectID, SIP.Zone, SIP.Instance, SIP.ProjectNumber, SIP.Image)
 	output, proceed := f.Execute()
 	return f, output, proceed
 }

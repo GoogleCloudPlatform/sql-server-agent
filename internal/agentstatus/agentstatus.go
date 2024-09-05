@@ -99,3 +99,8 @@ func NewCloudProperties(projectID, zone, instanceName, projectNumber, image stri
 		Image:         image,
 	}
 }
+
+// Status returns the usagemetrics.Status.
+func Status(status string) usagemetrics.Status {
+	return usagemetrics.Status(status)
+}

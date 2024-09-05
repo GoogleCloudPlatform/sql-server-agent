@@ -24,7 +24,7 @@ import (
 )
 
 func TestNewAgentFlags(t *testing.T) {
-	af := NewAgentFlags()
+	af := NewAgentFlags("", "", "", "", "")
 	if af.help != false {
 		t.Errorf("NewAgentFlags() = %v, want %v", af.help, true)
 	}
@@ -95,6 +95,24 @@ func TestExecute(t *testing.T) {
 			name:     "having flag --help ignores other flags",
 			af:       &AgentFlags{help: true, version: true},
 			wantStr:  `Usage: google-cloud-sql-server-agent -(h|agent_version|onetime)`,
+			wantBool: false,
+		},
+		{
+			name:     "having flag --logusage ignores other flags",
+			af:       &AgentFlags{logStatus: "status", Onetime: true, logVersion: "version", logName: "name"},
+			wantStr:  "",
+			wantBool: false,
+		},
+		{
+			name:     "having flag --logusage requires the non-empty value of flag --logname",
+			af:       &AgentFlags{logStatus: "status", Onetime: true},
+			wantStr:  "Please specify the name of the log -logname.",
+			wantBool: false,
+		},
+		{
+			name:     "having flag --logusage requires the non-empty value of flag --logversion",
+			af:       &AgentFlags{logStatus: "status", Onetime: true, logName: "name"},
+			wantStr:  "Please specify the version of the log -logversion.",
 			wantBool: false,
 		},
 	}
