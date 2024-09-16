@@ -38,7 +38,7 @@ const (
 	
 
 	// AgentVersion is the version of the agent.
-	AgentVersion = `1.2`
+	AgentVersion = `1.3`
 	
 
 	// ServiceName .
