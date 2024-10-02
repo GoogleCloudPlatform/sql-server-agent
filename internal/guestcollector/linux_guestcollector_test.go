@@ -286,6 +286,22 @@ func TestCollectLinuxGuestRules(t *testing.T) {
 			},
 		},
 		{
+			name:        "returns unknow when runCommand returns null",
+			mockRuleMap: true,
+			commandExecutorMapMock: map[string]commandExecutor{
+				internal.LocalSSDRule: commandExecutor{
+					isRule: true,
+					runCommand: func(ctx context.Context, command string) (string, error) {
+						return "null", nil
+					},
+				},
+			},
+			want: internal.Details{
+				Name:   "OS",
+				Fields: []map[string]string{map[string]string{"local_ssd": "unknown"}},
+			},
+		},
+		{
 			name:       "invalid command return empty result",
 			mockWMIErr: true,
 			want: internal.Details{
@@ -323,13 +339,15 @@ func TestCollectLinuxGuestRules(t *testing.T) {
 
 func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 	testcases := []struct {
-		name              string
-		powerPlanInput    string
-		runErr            bool
-		lshwErr           bool
-		createSessionErr  bool
-		emptyRemoteRunner bool
-		want              internal.Details
+		name                   string
+		powerPlanInput         string
+		runErr                 bool
+		lshwErr                bool
+		createSessionErr       bool
+		emptyRemoteRunner      bool
+		mockRuleMap            bool
+		commandExecutorMapMock map[string]commandExecutor
+		want                   internal.Details
 	}{
 		{
 			name:           "remote: success",
@@ -422,16 +440,37 @@ func TestCollectLinuxGuestRulesRemote(t *testing.T) {
 				Fields: []map[string]string{{"local_ssd": "unknown"}},
 			},
 		},
+		{
+			name:        "returns unknow when runRemoteCommand returns null",
+			mockRuleMap: true,
+			commandExecutorMapMock: map[string]commandExecutor{
+				internal.LocalSSDRule:                commandExecutor{runRemoteCommand: func(ctx context.Context, command string, r remote.Executor) (string, error) { return "null", nil }},
+				internal.PowerProfileSettingRule:     commandExecutor{runRemoteCommand: func(ctx context.Context, command string, r remote.Executor) (string, error) { return "null", nil }},
+				internal.DataDiskAllocationUnitsRule: commandExecutor{runRemoteCommand: func(ctx context.Context, command string, r remote.Executor) (string, error) { return "null", nil }},
+				internal.GCBDRAgentRunning:           commandExecutor{runRemoteCommand: func(ctx context.Context, command string, r remote.Executor) (string, error) { return "null", nil }},
+			},
+			want: internal.Details{
+				Name: "OS",
+				Fields: []map[string]string{map[string]string{
+					"local_ssd":                  "unknown",
+					"data_disk_allocation_units": "unknown",
+					"gcbdr_agent_running":        "unknown",
+					"power_profile_setting":      "unknown",
+				}},
+			},
+		},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			collector := NewLinuxCollector(nil, "", "", "", true, 22, fakeUsageMetricsLogger)
+			if tc.mockRuleMap {
+				collector.guestRuleCommandMap = tc.commandExecutorMapMock
+			}
 			if !tc.emptyRemoteRunner {
 				collector.remoteRunner = newMockRemote(tc.runErr, tc.createSessionErr, tc.lshwErr, tc.powerPlanInput)
 			} else {
 				collector.remoteRunner = nil
 			}
-
 			got := collector.CollectGuestRules(context.Background(), time.Minute)
 			if diff := cmp.Diff(got, tc.want); diff != "" {
 				t.Errorf("CollectGuestRules() returned wrong result (-got +want):\n%s", diff)

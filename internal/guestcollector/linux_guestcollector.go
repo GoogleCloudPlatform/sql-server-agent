@@ -251,7 +251,6 @@ func NewLinuxCollector(disks []*instanceinfo.Disks, ipAddr, username, privateKey
 				s.Close()
 				if err != nil || blockSize == "" {
 					blockSize = "unknown"
-					continue
 				}
 				result = append(result, resultEle{BlockSize: blockSize, Caption: physicalDrive})
 			}
@@ -496,6 +495,10 @@ func (c *LinuxCollector) CollectGuestRules(ctx context.Context, timeout time.Dur
 						fields[rule] = "unknown"
 						ch <- false
 						return
+					} else if res == "null" {
+						fields[rule] = "unknown"
+						ch <- false
+						return
 					}
 					fields[rule] = res
 				} else if exe.isRule { // local calls are only made if isrule is true
@@ -507,6 +510,10 @@ func (c *LinuxCollector) CollectGuestRules(ctx context.Context, timeout time.Dur
 							log.Logger.Errorw("Failed to run command", "command", exe.command, "error", err)
 							c.usageMetricsLogger.Error(agentstatus.CommandExecutionError)
 						}
+						fields[rule] = "unknown"
+						ch <- false
+						return
+					} else if res == "null" {
 						fields[rule] = "unknown"
 						ch <- false
 						return
