@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
 Copyright 2022 Google LLC
 
@@ -17,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package main serves as the Main entry point for sql server agent.
 package main
 
 import (
@@ -35,7 +31,8 @@ import (
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
 )
 
-func main() {
+// Start is the main entry point for the sql server agent.
+func Start() {
 	flags, output, proceed := agent.Init()
 	if output != "" {
 		fmt.Println(output)
@@ -132,7 +129,7 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 	targetInstanceProps := sourceInstanceProps
 	disks, err := agent.AllDisks(ctx, targetInstanceProps)
 	if err != nil {
-		return fmt.Errorf("Failed to collect disk info: %w", err)
+		return fmt.Errorf("failed to collect disk info: %w", err)
 	}
 
 	c := guestcollector.NewLinuxCollector(disks, "", "", "", false, 22, agent.UsageMetricsLogger)

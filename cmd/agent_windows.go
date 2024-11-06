@@ -1,6 +1,3 @@
-//go:build windows
-// +build windows
-
 /*
 Copyright 2023 Google LLC
 
@@ -17,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package main serves as the Main entry point for sql server agent.
 package main
 
 import (
@@ -36,7 +32,8 @@ import (
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
 )
 
-func main() {
+// Start is the main entry point for the sql server agent.
+func Start() {
 	flags, output, proceed := agent.Init()
 	if output != "" {
 		fmt.Println(output)

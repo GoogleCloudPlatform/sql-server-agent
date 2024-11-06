@@ -29,7 +29,7 @@ go test ./...
 
 echo "**************  Building Linux binary"
 mkdir -p buildoutput
-env GOOS=linux GOARCH=amd64 go build -o buildoutput/google_cloud_sql_server_agent cmd/linux/main.go
+env GOOS=linux GOARCH=amd64 go build -o buildoutput/google_cloud_sql_server_agent cmd/main.go
 
 echo "**************  Cleaning up"
 rm -f go1.21.0.linux-amd64.tar.gz*
