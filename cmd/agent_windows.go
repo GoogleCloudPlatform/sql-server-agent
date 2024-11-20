@@ -27,79 +27,33 @@ import (
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/cmd/agent"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
-	"github.com/GoogleCloudPlatform/sql-server-agent/internal/daemon"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/guestcollector"
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
 )
 
-// Start is the main entry point for the sql server agent.
-func Start() {
-	flags, output, proceed := agent.Init()
-	if output != "" {
-		fmt.Println(output)
-	}
-	if !proceed {
-		return
-	}
-
-	ctx := context.Background()
-	logPrefix := filepath.Join(
+func logPrefix() string {
+	return filepath.Join(
 		os.Getenv("ProgramData"),
 		"Google",
 		"google-cloud-sql-server-agent",
 		"logs",
 		"google-cloud-sql-server-agent")
-	agent.LoggingSetupDefault(ctx, logPrefix)
+}
 
-	// Get path to the executable file.
+func configPath() string {
 	p, err := os.Executable()
 	if err != nil {
 		log.Logger.Fatalw("Failed to get the path of executable", "error", err)
 	}
-	cfg, err := agent.LoadConfiguration(p)
-	if cfg == nil {
-		log.Logger.Fatalw("Failed to load configuration", "error", err)
-	}
+	return p
+}
+
+func agentFilePath() string {
+	p, err := os.Executable()
 	if err != nil {
-		log.Logger.Errorw("Failed to load configuration", "error", err)
+		log.Logger.Fatalw("Failed to get the path of executable", "error", err)
 	}
-
-	if err != nil {
-		log.Logger.Errorw("Failed to load configuration. Using default configurations", "error", err)
-	}
-	agent.LoggingSetup(ctx, logPrefix, cfg)
-	// onetime collection
-	if flags.Onetime {
-		if err := osCollection(ctx, p, logPrefix, cfg, true); err != nil {
-			log.Logger.Errorw("Failed to complete os collection", "error", err)
-		}
-		if err := sqlCollection(ctx, p, logPrefix, cfg, true); err != nil {
-			log.Logger.Errorw("Failed to complete sql collection", "error", err)
-		}
-		return
-	}
-	// Init UsageMetricsLogger by reading "disable_log_usage" from the configuration file.
-	agent.UsageMetricsLogger = agent.UsageMetricsLoggerInit(agent.ServiceName, agent.AgentVersion, agent.AgentUsageLogPrefix, !cfg.GetDisableLogUsage())
-	osCollectionFunc := func(cfg *configpb.Configuration, onetime bool) error {
-		return osCollection(ctx, p, logPrefix, cfg, onetime)
-	}
-	sqlCollectionFunc := func(cfg *configpb.Configuration, onetime bool) error {
-		return sqlCollection(ctx, p, logPrefix, cfg, onetime)
-	}
-
-	s, err := daemon.CreateService(
-		func() { agent.CollectionService(p, osCollectionFunc, agent.OS) },
-		func() { agent.CollectionService(p, sqlCollectionFunc, agent.SQL) },
-		daemon.CreateConfig(agent.ServiceName, agent.ServiceDisplayName, agent.Description),
-		agent.UsageMetricsLogger)
-
-	if err != nil {
-		log.Logger.Fatalw("Failed to create the service", "error", err)
-	}
-
-	if err = daemon.Control(s, flags.Action, agent.UsageMetricsLogger); err != nil {
-		log.Logger.Fatal(err)
-	}
+	return p
 }
 
 func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Configuration, onetime bool) error {
