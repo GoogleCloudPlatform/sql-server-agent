@@ -21,14 +21,15 @@ import (
 	"context"
 	"fmt"
 
+	_ "github.com/microsoft/go-mssqldb"
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
-	"github.com/GoogleCloudPlatform/sql-server-agent/cmd/agent"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/daemon"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/sqlservermetrics"
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
 )
 
 func main() {
-	flags, output, proceed := agent.Init()
+	flags, output, proceed := sqlservermetrics.Init()
 	if output != "" {
 		fmt.Println(output)
 	}
@@ -38,9 +39,9 @@ func main() {
 
 	ctx := context.Background()
 	// Load default logging configuration.
-	agent.LoggingSetupDefault(ctx, logPrefix())
+	sqlservermetrics.LoggingSetupDefault(ctx, logPrefix())
 	// Load configuration.
-	cfg, err := agent.LoadConfiguration(configPath())
+	cfg, err := sqlservermetrics.LoadConfiguration(configPath())
 	if cfg == nil {
 		log.Logger.Fatalw("Failed to load configuration", "error", err)
 	}
@@ -48,7 +49,7 @@ func main() {
 		log.Logger.Errorw("Failed to load configuration. Using default configurations", "error", err)
 	}
 	// Load logging configuration based on the configuration file.
-	agent.LoggingSetup(ctx, logPrefix(), cfg)
+	sqlservermetrics.LoggingSetup(ctx, logPrefix(), cfg)
 
 	// onetime collection
 	if flags.Onetime {
@@ -61,7 +62,7 @@ func main() {
 		return
 	}
 	// Init UsageMetricsLogger by reading "disable_log_usage" from the configuration file.
-	agent.UsageMetricsLogger = agent.UsageMetricsLoggerInit(agent.ServiceName, agent.AgentVersion, agent.AgentUsageLogPrefix, !cfg.GetDisableLogUsage())
+	sqlservermetrics.UsageMetricsLogger = sqlservermetrics.UsageMetricsLoggerInit(sqlservermetrics.ServiceName, sqlservermetrics.AgentVersion, sqlservermetrics.AgentUsageLogPrefix, !cfg.GetDisableLogUsage())
 	osCollectionFunc := func(cfg *configpb.Configuration, onetime bool) error {
 		return osCollection(ctx, agentFilePath(), logPrefix(), cfg, onetime)
 	}
@@ -70,16 +71,16 @@ func main() {
 	}
 
 	s, err := daemon.CreateService(
-		func() { agent.CollectionService(configPath(), osCollectionFunc, agent.OS) },
-		func() { agent.CollectionService(configPath(), sqlCollectionFunc, agent.SQL) },
-		daemon.CreateConfig(agent.ServiceName, agent.ServiceDisplayName, agent.Description),
-		agent.UsageMetricsLogger)
+		func() { sqlservermetrics.CollectionService(configPath(), osCollectionFunc, sqlservermetrics.OS) },
+		func() { sqlservermetrics.CollectionService(configPath(), sqlCollectionFunc, sqlservermetrics.SQL) },
+		daemon.CreateConfig(sqlservermetrics.ServiceName, sqlservermetrics.ServiceDisplayName, sqlservermetrics.Description),
+		sqlservermetrics.UsageMetricsLogger)
 
 	if err != nil {
 		log.Logger.Fatalw("Failed to create the service", "error", err)
 	}
 
-	if err = daemon.Control(s, flags.Action, agent.UsageMetricsLogger); err != nil {
+	if err = daemon.Control(s, flags.Action, sqlservermetrics.UsageMetricsLogger); err != nil {
 		log.Logger.Fatal(err)
 	}
 }

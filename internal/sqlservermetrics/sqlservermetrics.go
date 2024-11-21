@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package agent offers functions that is commonly used by both windows and linux agent.
-package agent
+// Package sqlservermetrics run SQL and OS collections and sends metrics to workload manager.
+package sqlservermetrics
 
 import (
 	"context"
@@ -26,10 +26,11 @@ import (
 	"time"
 
 	backoff "github.com/cenkalti/backoff/v4"
+	"go.uber.org/zap/zapcore"
+	"github.com/GoogleCloudPlatform/sapagent/shared/commandlineexecutor"
 	"github.com/GoogleCloudPlatform/sapagent/shared/gce"
 	"github.com/GoogleCloudPlatform/sapagent/shared/gce/metadataserver"
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
-	"github.com/GoogleCloudPlatform/sql-server-agent/cmd/agent/agentshared"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/activation"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/configuration"
@@ -122,12 +123,34 @@ func Init() (*flags.AgentFlags, string, bool) {
 
 // LoggingSetup initialize the agent logging level.
 func LoggingSetup(ctx context.Context, logPrefix string, cfg *configpb.Configuration) {
-	agentshared.LoggingSetup(ctx, logPrefix, cfg.GetLogLevel(), SIP.ProjectID, cfg.GetLogToCloud())
+	lp := log.Parameters{
+		LogFileName:        logPrefix + ".log",
+		LogToCloud:         cfg.GetLogToCloud(),
+		CloudLogName:       "google-cloud-sql-server-agent",
+		CloudLoggingClient: log.CloudLoggingClient(ctx, SIP.ProjectID),
+	}
+	logLevel := map[string]zapcore.Level{
+		"DEBUG":   zapcore.DebugLevel,
+		"INFO":    zapcore.InfoLevel,
+		"WARNING": zapcore.WarnLevel,
+		"ERROR":   zapcore.ErrorLevel,
+	}
+	if _, ok := logLevel[cfg.GetLogLevel()]; !ok {
+		lp.Level = zapcore.InfoLevel
+	} else {
+		lp.Level = logLevel[cfg.GetLogLevel()]
+	}
+	log.SetupLogging(lp)
 }
 
 // LoggingSetupDefault wraps LoggingSetupDefault function from agent_shared.go.
 func LoggingSetupDefault(ctx context.Context, prefix string) {
-	agentshared.LoggingSetupDefault(ctx, prefix)
+	lp := log.Parameters{
+		LogFileName:  prefix + ".log",
+		Level:        zapcore.InfoLevel,
+		CloudLogName: "google-cloud-sql-server-agent",
+	}
+	log.SetupLogging(lp)
 }
 
 // InitCollection executes steps for initializing a collection.
@@ -142,7 +165,21 @@ func InitCollection(ctx context.Context) (*wlm.WLM, error) {
 
 // CheckAgentStatus checks agent status. Return error if it failed to activate.
 func CheckAgentStatus(wlm wlm.WorkloadManagerService, path string) error {
-	return agentshared.CheckAgentStatus(activation.NewV1(), wlm, filepath.Join(filepath.Dir(path), "google-cloud-sql-server-agent.activated"), SIP.Name, SIP.ProjectID, SIP.Instance, SIP.InstanceID)
+	agentStatus := activation.NewV1()
+	fp := filepath.Join(filepath.Dir(path), "google-cloud-sql-server-agent.activated")
+	if !agentStatus.IsAgentActive(fp) {
+		log.Logger.Info("Agent is not active. Activating the agent.")
+		isActive, err := agentStatus.Activate(wlm, fp, SIP.Name, SIP.ProjectID, SIP.Instance, SIP.InstanceID)
+		if isActive {
+			log.Logger.Info("Agent is activated.")
+			if err != nil {
+				log.Logger.Warnw("An error occured during the agent activation", "error", err)
+			}
+		} else {
+			return fmt.Errorf("Activation failed. Error: %v", err)
+		}
+	}
+	return nil
 }
 
 // LoadConfiguration loads configuration from given path.
@@ -167,12 +204,25 @@ func RunSQLCollection(ctx context.Context, conn string, timeout time.Duration, w
 		return nil, err
 	}
 	defer c.Close()
-	return agentshared.RunSQLCollection(ctx, c, timeout), nil
+	// Start db collection.
+	log.Logger.Debug("Collecting SQL Server rules.")
+	details := c.CollectMasterRules(ctx, timeout)
+	log.Logger.Debug("Collecting SQL Server rules completes.")
+	return details, nil
 }
 
 // RunOSCollection starts running os collection.
 func RunOSCollection(ctx context.Context, c guestcollector.GuestCollector, timeout time.Duration) []internal.Details {
-	return agentshared.RunOSCollection(ctx, c, timeout)
+	details := []internal.Details{}
+	log.Logger.Debug("Collecting guest rules")
+	details = append(details, c.CollectGuestRules(ctx, timeout))
+	err := guestcollector.MarkUnknownOsFields(&details)
+	if err != nil {
+		log.Logger.Warnf("RunOSCollection: Failed to mark unknown collected fields. error: %v", err)
+	}
+
+	log.Logger.Debug("Collecting guest rules completes")
+	return details
 }
 
 // SecretValue gets secret value from Secret Manager.
@@ -370,7 +420,19 @@ func AddPhysicalDriveRemoteLinux(details []internal.Details, cred *configuration
 
 // AddPhysicalDriveLocal starts physical drive to physical path mapping
 func AddPhysicalDriveLocal(ctx context.Context, details []internal.Details, windows bool) {
-	agentshared.AddPhysicalDriveLocal(ctx, details, windows)
+	for _, detail := range details {
+		if detail.Name != "DB_LOG_DISK_SEPARATION" {
+			continue
+		}
+		for _, field := range detail.Fields {
+			physicalPath, pathExists := field["physical_name"]
+			if !pathExists {
+				log.Logger.Warn("physical_name field for DB_LOG_DISK_SEPERATION does not exist")
+				continue
+			}
+			field["physical_drive"] = internal.GetPhysicalDriveFromPath(ctx, physicalPath, windows, commandlineexecutor.ExecuteCommand)
+		}
+	}
 }
 
 // InitDetails returns empty array of internal.Details

@@ -23,11 +23,10 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/microsoft/go-mssqldb"
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
-	"github.com/GoogleCloudPlatform/sql-server-agent/cmd/agent"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/guestcollector"
+	"github.com/GoogleCloudPlatform/sql-server-agent/internal/sqlservermetrics"
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
 )
 
@@ -63,26 +62,26 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 	if cfg.GetCredentialConfiguration() == nil || len(cfg.GetCredentialConfiguration()) == 0 {
 		return fmt.Errorf("empty credentials")
 	}
-	wlm, err := agent.InitCollection(ctx)
+	wlm, err := sqlservermetrics.InitCollection(ctx)
 	if err != nil {
 		return err
 	}
 	if !onetime {
-		if err := agent.CheckAgentStatus(wlm, path); err != nil {
+		if err := sqlservermetrics.CheckAgentStatus(wlm, path); err != nil {
 			return err
 		}
 	}
 
-	sourceInstanceProps := agent.SIP
+	sourceInstanceProps := sqlservermetrics.SIP
 	timeout := time.Duration(cfg.GetCollectionTimeoutSeconds()) * time.Second
 	interval := time.Duration(cfg.GetRetryIntervalInSeconds()) * time.Second
 
 	log.Logger.Info("Guest rules collection starts.")
 	for _, credentialCfg := range cfg.GetCredentialConfiguration() {
-		guestCfg := agent.GuestConfigFromCredential(credentialCfg)
-		if err := agent.ValidateCredCfgGuest(cfg.GetRemoteCollection(), !guestCfg.LinuxRemote, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {
+		guestCfg := sqlservermetrics.GuestConfigFromCredential(credentialCfg)
+		if err := sqlservermetrics.ValidateCredCfgGuest(cfg.GetRemoteCollection(), !guestCfg.LinuxRemote, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {
 			log.Logger.Errorw("Invalid credential configuration", "error", err)
-			agent.UsageMetricsLogger.Error(agentstatus.InvalidConfigurationsError)
+			sqlservermetrics.UsageMetricsLogger.Error(agentstatus.InvalidConfigurationsError)
 			if !cfg.GetRemoteCollection() {
 				break
 			}
@@ -93,7 +92,7 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 		var c guestcollector.GuestCollector
 		if cfg.GetRemoteCollection() {
 			// remote collection
-			targetInstanceProps = agent.InstanceProperties{
+			targetInstanceProps = sqlservermetrics.InstanceProperties{
 				InstanceID: credentialCfg.GetInstanceId(),
 				Instance:   credentialCfg.GetInstanceName(),
 			}
@@ -101,30 +100,30 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 			username := guestCfg.GuestUserName
 			if !guestCfg.LinuxRemote {
 				log.Logger.Debug("Starting remote win guest collection for ip " + host)
-				pswd, err := agent.SecretValue(ctx, sourceInstanceProps.ProjectID, guestCfg.GuestSecretName)
+				pswd, err := sqlservermetrics.SecretValue(ctx, sourceInstanceProps.ProjectID, guestCfg.GuestSecretName)
 				if err != nil {
 					log.Logger.Errorw("Collection failed", "target", guestCfg.ServerName, "error", fmt.Errorf("failed to get secret value: %v", err))
-					agent.UsageMetricsLogger.Error(agentstatus.SecretValueError)
+					sqlservermetrics.UsageMetricsLogger.Error(agentstatus.SecretValueError)
 					if !cfg.GetRemoteCollection() {
 						break
 					}
 					continue
 				}
-				c = guestcollector.NewWindowsCollector(host, username, pswd, agent.UsageMetricsLogger)
+				c = guestcollector.NewWindowsCollector(host, username, pswd, sqlservermetrics.UsageMetricsLogger)
 			} else {
 				// on local windows vm collecting on remote linux vm's, we use ssh, otherwise we use wmi
 				log.Logger.Debug("Starting remote linux guest collection for ip " + host)
 				// disks only used for local linux collection
-				c = guestcollector.NewLinuxCollector(nil, host, username, guestCfg.LinuxSSHPrivateKeyPath, true, guestCfg.GuestPortNumber, agent.UsageMetricsLogger)
+				c = guestcollector.NewLinuxCollector(nil, host, username, guestCfg.LinuxSSHPrivateKeyPath, true, guestCfg.GuestPortNumber, sqlservermetrics.UsageMetricsLogger)
 			}
 		} else {
 			// local win collection
 			log.Logger.Debug("Starting local win guest collection")
-			c = guestcollector.NewWindowsCollector(nil, nil, nil, agent.UsageMetricsLogger)
+			c = guestcollector.NewWindowsCollector(nil, nil, nil, sqlservermetrics.UsageMetricsLogger)
 		}
 
-		details := agent.RunOSCollection(ctx, c, timeout)
-		agent.UpdateCollectedData(wlm, sourceInstanceProps, targetInstanceProps, details)
+		details := sqlservermetrics.RunOSCollection(ctx, c, timeout)
+		sqlservermetrics.UpdateCollectedData(wlm, sourceInstanceProps, targetInstanceProps, details)
 		log.Logger.Debug("Finished guest collection")
 
 		if onetime {
@@ -132,10 +131,10 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 			if cfg.GetRemoteCollection() {
 				target = credentialCfg.GetInstanceName()
 			}
-			agent.PersistCollectedData(wlm, filepath.Join(filepath.Dir(logPrefix), fmt.Sprintf("%s-%s.json", target, "guest")))
+			sqlservermetrics.PersistCollectedData(wlm, filepath.Join(filepath.Dir(logPrefix), fmt.Sprintf("%s-%s.json", target, "guest")))
 		} else {
 			log.Logger.Debugf("Source vm %s is sending os collected data on target machine, %s, to workload manager.", sourceInstanceProps.Instance, targetInstanceProps.Instance)
-			agent.SendRequestToWLM(wlm, sourceInstanceProps.Name, cfg.GetMaxRetries(), interval)
+			sqlservermetrics.SendRequestToWLM(wlm, sourceInstanceProps.Name, cfg.GetMaxRetries(), interval)
 		}
 		// Local collection.
 		// Exit the loop. Only take the first credential in the credentialconfiguration array.
@@ -156,41 +155,41 @@ func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Co
 		return fmt.Errorf("empty credentials")
 	}
 
-	wlm, err := agent.InitCollection(ctx)
+	wlm, err := sqlservermetrics.InitCollection(ctx)
 	if err != nil {
 		return err
 	}
 	if !onetime {
-		if err := agent.CheckAgentStatus(wlm, path); err != nil {
+		if err := sqlservermetrics.CheckAgentStatus(wlm, path); err != nil {
 			return err
 		}
 	}
 
-	sourceInstanceProps := agent.SIP
+	sourceInstanceProps := sqlservermetrics.SIP
 	timeout := time.Duration(cfg.GetCollectionTimeoutSeconds()) * time.Second
 	interval := time.Duration(cfg.GetRetryIntervalInSeconds()) * time.Second
 
 	log.Logger.Info("SQL rules collection starts.")
 	for _, credentialCfg := range cfg.GetCredentialConfiguration() {
-		validationDetails := agent.InitDetails()
-		guestCfg := agent.GuestConfigFromCredential(credentialCfg)
-		for _, sqlCfg := range agent.SQLConfigFromCredential(credentialCfg) {
-			if err := agent.ValidateCredCfgSQL(cfg.GetRemoteCollection(), !guestCfg.LinuxRemote, sqlCfg, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {
+		validationDetails := sqlservermetrics.InitDetails()
+		guestCfg := sqlservermetrics.GuestConfigFromCredential(credentialCfg)
+		for _, sqlCfg := range sqlservermetrics.SQLConfigFromCredential(credentialCfg) {
+			if err := sqlservermetrics.ValidateCredCfgSQL(cfg.GetRemoteCollection(), !guestCfg.LinuxRemote, sqlCfg, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {
 				log.Logger.Errorw("Invalid credential configuration", "error", err)
-				agent.UsageMetricsLogger.Error(agentstatus.InvalidConfigurationsError)
+				sqlservermetrics.UsageMetricsLogger.Error(agentstatus.InvalidConfigurationsError)
 				continue
 			}
-			pswd, err := agent.SecretValue(ctx, sourceInstanceProps.ProjectID, sqlCfg.SecretName)
+			pswd, err := sqlservermetrics.SecretValue(ctx, sourceInstanceProps.ProjectID, sqlCfg.SecretName)
 			if err != nil {
 				log.Logger.Errorw("Failed to get secret value", "error", err)
-				agent.UsageMetricsLogger.Error(agentstatus.SecretValueError)
+				sqlservermetrics.UsageMetricsLogger.Error(agentstatus.SecretValueError)
 				continue
 			}
 			conn := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;", sqlCfg.Host, sqlCfg.Username, pswd, sqlCfg.PortNumber)
-			details, err := agent.RunSQLCollection(ctx, conn, timeout, !guestCfg.LinuxRemote)
+			details, err := sqlservermetrics.RunSQLCollection(ctx, conn, timeout, !guestCfg.LinuxRemote)
 			if err != nil {
 				log.Logger.Errorw("Failed to run sql collection", "error", err)
-				agent.UsageMetricsLogger.Error(agentstatus.SQLCollectionFailure)
+				sqlservermetrics.UsageMetricsLogger.Error(agentstatus.SQLCollectionFailure)
 				continue
 			}
 
@@ -203,9 +202,9 @@ func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Co
 
 			// getting physical drive if on local windows collecting sql on linux remote
 			if cfg.GetRemoteCollection() && guestCfg.LinuxRemote {
-				agent.AddPhysicalDriveRemoteLinux(details, guestCfg)
+				sqlservermetrics.AddPhysicalDriveRemoteLinux(details, guestCfg)
 			} else {
-				agent.AddPhysicalDriveLocal(ctx, details, true)
+				sqlservermetrics.AddPhysicalDriveLocal(ctx, details, true)
 			}
 
 			for i, detail := range details {
@@ -224,21 +223,21 @@ func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Co
 		// update targetInstanceProps value for remote collections.
 		if cfg.GetRemoteCollection() {
 			// remote collection
-			targetInstanceProps = agent.InstanceProperties{
+			targetInstanceProps = sqlservermetrics.InstanceProperties{
 				InstanceID: credentialCfg.GetInstanceId(),
 				Instance:   credentialCfg.GetInstanceName(),
 			}
 		}
-		agent.UpdateCollectedData(wlm, sourceInstanceProps, targetInstanceProps, validationDetails)
+		sqlservermetrics.UpdateCollectedData(wlm, sourceInstanceProps, targetInstanceProps, validationDetails)
 		if onetime {
 			target := "localhost"
 			if cfg.GetRemoteCollection() {
 				target = targetInstanceProps.Instance
 			}
-			agent.PersistCollectedData(wlm, filepath.Join(filepath.Dir(logPrefix), fmt.Sprintf("%s-%s.json", target, "sql")))
+			sqlservermetrics.PersistCollectedData(wlm, filepath.Join(filepath.Dir(logPrefix), fmt.Sprintf("%s-%s.json", target, "sql")))
 		} else {
 			log.Logger.Debugf("Source vm %s is sending collected sql data on target machine, %s, to workload manager.", sourceInstanceProps.Instance, targetInstanceProps.Instance)
-			agent.SendRequestToWLM(wlm, sourceInstanceProps.Name, cfg.GetMaxRetries(), interval)
+			sqlservermetrics.SendRequestToWLM(wlm, sourceInstanceProps.Name, cfg.GetMaxRetries(), interval)
 		}
 	}
 	log.Logger.Info("SQL rules collection ends.")
