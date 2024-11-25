@@ -39,9 +39,9 @@ func main() {
 
 	ctx := context.Background()
 	// Load default logging configuration.
-	sqlservermetrics.LoggingSetupDefault(ctx, logPrefix())
+	sqlservermetrics.LoggingSetupDefault(ctx, sqlservermetrics.LogPrefix())
 	// Load configuration.
-	cfg, err := sqlservermetrics.LoadConfiguration(configPath())
+	cfg, err := sqlservermetrics.LoadConfiguration(sqlservermetrics.ConfigPath())
 	if cfg == nil {
 		log.Logger.Fatalw("Failed to load configuration", "error", err)
 	}
@@ -49,14 +49,14 @@ func main() {
 		log.Logger.Errorw("Failed to load configuration. Using default configurations", "error", err)
 	}
 	// Load logging configuration based on the configuration file.
-	sqlservermetrics.LoggingSetup(ctx, logPrefix(), cfg)
+	sqlservermetrics.LoggingSetup(ctx, sqlservermetrics.LogPrefix(), cfg)
 
 	// onetime collection
 	if flags.Onetime {
-		if err := osCollection(ctx, agentFilePath(), logPrefix(), cfg, true); err != nil {
+		if err := sqlservermetrics.OSCollection(ctx, sqlservermetrics.AgentFilePath(), sqlservermetrics.LogPrefix(), cfg, true); err != nil {
 			log.Logger.Errorw("Failed to complete os collection", "error", err)
 		}
-		if err := sqlCollection(ctx, agentFilePath(), logPrefix(), cfg, true); err != nil {
+		if err := sqlservermetrics.SQLCollection(ctx, sqlservermetrics.AgentFilePath(), sqlservermetrics.LogPrefix(), cfg, true); err != nil {
 			log.Logger.Errorw("Failed to complete sql collection", "error", err)
 		}
 		return
@@ -64,15 +64,19 @@ func main() {
 	// Init UsageMetricsLogger by reading "disable_log_usage" from the configuration file.
 	sqlservermetrics.UsageMetricsLogger = sqlservermetrics.UsageMetricsLoggerInit(sqlservermetrics.ServiceName, sqlservermetrics.AgentVersion, sqlservermetrics.AgentUsageLogPrefix, !cfg.GetDisableLogUsage())
 	osCollectionFunc := func(cfg *configpb.Configuration, onetime bool) error {
-		return osCollection(ctx, agentFilePath(), logPrefix(), cfg, onetime)
+		return sqlservermetrics.OSCollection(ctx, sqlservermetrics.AgentFilePath(), sqlservermetrics.LogPrefix(), cfg, onetime)
 	}
 	sqlCollectionFunc := func(cfg *configpb.Configuration, onetime bool) error {
-		return sqlCollection(ctx, agentFilePath(), logPrefix(), cfg, onetime)
+		return sqlservermetrics.SQLCollection(ctx, sqlservermetrics.AgentFilePath(), sqlservermetrics.LogPrefix(), cfg, onetime)
 	}
 
 	s, err := daemon.CreateService(
-		func() { sqlservermetrics.CollectionService(configPath(), osCollectionFunc, sqlservermetrics.OS) },
-		func() { sqlservermetrics.CollectionService(configPath(), sqlCollectionFunc, sqlservermetrics.SQL) },
+		func() {
+			sqlservermetrics.CollectionService(sqlservermetrics.ConfigPath(), osCollectionFunc, sqlservermetrics.OS)
+		},
+		func() {
+			sqlservermetrics.CollectionService(sqlservermetrics.ConfigPath(), sqlCollectionFunc, sqlservermetrics.SQL)
+		},
 		daemon.CreateConfig(sqlservermetrics.ServiceName, sqlservermetrics.ServiceDisplayName, sqlservermetrics.Description),
 		sqlservermetrics.UsageMetricsLogger)
 

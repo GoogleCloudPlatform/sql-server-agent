@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package sqlservermetrics
 
 import (
 	"context"
@@ -25,23 +25,26 @@ import (
 	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/guestcollector"
-	"github.com/GoogleCloudPlatform/sql-server-agent/internal/sqlservermetrics"
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
 )
 
-func logPrefix() string {
+// LogPrefix is the log prefix for linux.
+func LogPrefix() string {
 	return "/var/log/google-cloud-sql-server-agent"
 }
 
-func configPath() string {
+// ConfigPath is the config path for linux.
+func ConfigPath() string {
 	return "/etc/google-cloud-sql-server-agent/"
 }
 
-func agentFilePath() string {
+// AgentFilePath is the agent file path for linux.
+func AgentFilePath() string {
 	return "/tmp/"
 }
 
-func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Configuration, onetime bool) error {
+// OSCollection is the linux implementation of OSCollection.
+func OSCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Configuration, onetime bool) error {
 	if !cfg.GetCollectionConfiguration().GetCollectGuestOsMetrics() {
 		return nil
 	}
@@ -54,13 +57,13 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 		return fmt.Errorf("empty credentials")
 	}
 
-	wlm, err := sqlservermetrics.InitCollection(ctx)
+	wlm, err := initCollection(ctx)
 	if err != nil {
 		return err
 	}
 
 	if !onetime {
-		if err := sqlservermetrics.CheckAgentStatus(wlm, path); err != nil {
+		if err := checkAgentStatus(wlm, path); err != nil {
 			return err
 		}
 	}
@@ -68,36 +71,37 @@ func osCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Con
 	// only local collection is supported for linux binary.
 	// therefore we only get the first credential from cred list and ignore the followings.
 	credentialCfg := cfg.GetCredentialConfiguration()[0]
-	guestCfg := sqlservermetrics.GuestConfigFromCredential(credentialCfg)
-	if err := sqlservermetrics.ValidateCredCfgGuest(false, !guestCfg.LinuxRemote, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {
+	guestCfg := guestConfigFromCredential(credentialCfg)
+	if err := validateCredCfgGuest(false, !guestCfg.LinuxRemote, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {
 		return err
 	}
 
-	sourceInstanceProps := sqlservermetrics.SIP
+	sourceInstanceProps := SIP
 	targetInstanceProps := sourceInstanceProps
-	disks, err := sqlservermetrics.AllDisks(ctx, targetInstanceProps)
+	disks, err := allDisks(ctx, targetInstanceProps)
 	if err != nil {
 		return fmt.Errorf("failed to collect disk info: %w", err)
 	}
 
-	c := guestcollector.NewLinuxCollector(disks, "", "", "", false, 22, sqlservermetrics.UsageMetricsLogger)
+	c := guestcollector.NewLinuxCollector(disks, "", "", "", false, 22, UsageMetricsLogger)
 	timeout := time.Duration(cfg.GetCollectionTimeoutSeconds()) * time.Second
-	details := sqlservermetrics.RunOSCollection(ctx, c, timeout)
-	sqlservermetrics.UpdateCollectedData(wlm, sourceInstanceProps, targetInstanceProps, details)
+	details := runOSCollection(ctx, c, timeout)
+	updateCollectedData(wlm, sourceInstanceProps, targetInstanceProps, details)
 
 	if onetime {
 		target := "localhost"
-		sqlservermetrics.PersistCollectedData(wlm, filepath.Join(filepath.Dir(logPrefix), fmt.Sprintf("%s-%s.json", target, "guest")))
+		persistCollectedData(wlm, filepath.Join(filepath.Dir(logPrefix), fmt.Sprintf("%s-%s.json", target, "guest")))
 	} else {
 		log.Logger.Debugf("Source vm %s is sending os collected data on target machine, %s, to workload manager.", sourceInstanceProps.Instance, targetInstanceProps.Instance)
 		interval := time.Duration(cfg.GetRetryIntervalInSeconds()) * time.Second
-		sqlservermetrics.SendRequestToWLM(wlm, sourceInstanceProps.Name, cfg.GetMaxRetries(), interval)
+		sendRequestToWLM(wlm, sourceInstanceProps.Name, cfg.GetMaxRetries(), interval)
 	}
 	log.Logger.Info("Guest os rules collection ends.")
 	return nil
 }
 
-func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Configuration, onetime bool) error {
+// SQLCollection is the linux implementation of SQLCollection.
+func SQLCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Configuration, onetime bool) error {
 	if !cfg.GetCollectionConfiguration().GetCollectSqlMetrics() {
 		return nil
 	}
@@ -108,40 +112,40 @@ func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Co
 		return fmt.Errorf("empty credentials")
 	}
 
-	wlm, err := sqlservermetrics.InitCollection(ctx)
+	wlm, err := initCollection(ctx)
 	if err != nil {
 		return err
 	}
 
 	if !onetime {
-		if err := sqlservermetrics.CheckAgentStatus(wlm, path); err != nil {
+		if err := checkAgentStatus(wlm, path); err != nil {
 			return err
 		}
 	}
 
 	log.Logger.Info("Sql rules collection starts.")
 	for _, credentialCfg := range cfg.GetCredentialConfiguration() {
-		validationDetails := sqlservermetrics.InitDetails()
-		sourceInstanceProps := sqlservermetrics.SIP
-		guestCfg := sqlservermetrics.GuestConfigFromCredential(credentialCfg)
-		for _, sqlCfg := range sqlservermetrics.SQLConfigFromCredential(credentialCfg) {
-			if err := sqlservermetrics.ValidateCredCfgSQL(false, !guestCfg.LinuxRemote, sqlCfg, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {
+		validationDetails := initDetails()
+		sourceInstanceProps := SIP
+		guestCfg := guestConfigFromCredential(credentialCfg)
+		for _, sqlCfg := range sqlConfigFromCredential(credentialCfg) {
+			if err := validateCredCfgSQL(false, !guestCfg.LinuxRemote, sqlCfg, guestCfg, credentialCfg.GetInstanceId(), credentialCfg.GetInstanceName()); err != nil {
 				log.Logger.Errorw("Invalid credential configuration", "error", err)
-				sqlservermetrics.UsageMetricsLogger.Error(agentstatus.InvalidConfigurationsError)
+				UsageMetricsLogger.Error(agentstatus.InvalidConfigurationsError)
 				continue
 			}
-			pswd, err := sqlservermetrics.SecretValue(ctx, sourceInstanceProps.ProjectID, sqlCfg.SecretName)
+			pswd, err := secretValue(ctx, sourceInstanceProps.ProjectID, sqlCfg.SecretName)
 			if err != nil {
 				log.Logger.Errorw("Failed to get secret value", "error", err)
-				sqlservermetrics.UsageMetricsLogger.Error(agentstatus.SecretValueError)
+				UsageMetricsLogger.Error(agentstatus.SecretValueError)
 				continue
 			}
 			conn := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;", sqlCfg.Host, sqlCfg.Username, pswd, sqlCfg.PortNumber)
 			timeout := time.Duration(cfg.GetCollectionTimeoutSeconds()) * time.Second
-			details, err := sqlservermetrics.RunSQLCollection(ctx, conn, timeout, false)
+			details, err := runSQLCollection(ctx, conn, timeout, false)
 			if err != nil {
 				log.Logger.Errorw("Failed to run sql collection", "error", err)
-				sqlservermetrics.UsageMetricsLogger.Error(agentstatus.SQLCollectionFailure)
+				UsageMetricsLogger.Error(agentstatus.SQLCollectionFailure)
 				continue
 			}
 			for _, detail := range details {
@@ -150,7 +154,7 @@ func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Co
 					field["port_number"] = fmt.Sprintf("%d", sqlCfg.PortNumber)
 				}
 			}
-			sqlservermetrics.AddPhysicalDriveLocal(ctx, details, false)
+			addPhysicalDriveLocal(ctx, details, false)
 
 			for i, detail := range details {
 				for _, vd := range validationDetails {
@@ -164,14 +168,14 @@ func sqlCollection(ctx context.Context, path, logPrefix string, cfg *configpb.Co
 			validationDetails = details
 		}
 		targetInstanceProps := sourceInstanceProps
-		sqlservermetrics.UpdateCollectedData(wlm, sourceInstanceProps, targetInstanceProps, validationDetails)
+		updateCollectedData(wlm, sourceInstanceProps, targetInstanceProps, validationDetails)
 
 		if onetime {
-			sqlservermetrics.PersistCollectedData(wlm, filepath.Join(filepath.Dir(logPrefix), fmt.Sprintf("%s-%s.json", targetInstanceProps.Instance, "sql")))
+			persistCollectedData(wlm, filepath.Join(filepath.Dir(logPrefix), fmt.Sprintf("%s-%s.json", targetInstanceProps.Instance, "sql")))
 		} else {
 			log.Logger.Debugf("Source vm %s is sending collected sql data on target machine, %s, to workload manager.", sourceInstanceProps.Instance, targetInstanceProps.Instance)
 			interval := time.Duration(cfg.GetRetryIntervalInSeconds()) * time.Second
-			sqlservermetrics.SendRequestToWLM(wlm, sourceInstanceProps.Name, cfg.GetMaxRetries(), interval)
+			sendRequestToWLM(wlm, sourceInstanceProps.Name, cfg.GetMaxRetries(), interval)
 		}
 	}
 	log.Logger.Info("Sql rules collection ends.")

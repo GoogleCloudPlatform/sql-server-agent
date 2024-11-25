@@ -91,29 +91,6 @@ var UsageMetricsLogger agentstatus.AgentStatus = UsageMetricsLoggerInit(internal
 // SIP is the source instance properties.
 var SIP InstanceProperties = sourceInstanceProperties()
 
-// UsageMetricsLoggerInit initializes and returns usage metrics logger.
-func UsageMetricsLoggerInit(logName, logVersion, logPrefix string, logUsage bool) agentstatus.AgentStatus {
-	ap := agentstatus.NewAgentProperties(logName, logVersion, logPrefix, logUsage)
-	cp := agentstatus.NewCloudProperties(SIP.ProjectID, SIP.Zone, SIP.Instance, SIP.ProjectNumber, SIP.Image)
-	return agentstatus.NewUsageMetricsLogger(ap, cp, []string{})
-}
-
-// sourceInstanceProperties returns properties of the instance the agent is running on.
-func sourceInstanceProperties() InstanceProperties {
-	properties := metadataserver.CloudPropertiesWithRetry(backoff.NewConstantBackOff(30 * time.Second))
-	location := string(properties.GetZone()[0:strings.LastIndex(properties.GetZone(), "-")])
-	name := fmt.Sprintf("projects/%s/locations/%s", properties.GetProjectId(), location)
-	return InstanceProperties{
-		Name:          name,
-		ProjectID:     properties.GetProjectId(),
-		ProjectNumber: properties.GetNumericProjectId(),
-		InstanceID:    properties.GetInstanceId(),
-		Instance:      properties.GetInstanceName(),
-		Zone:          properties.GetZone(),
-		Image:         properties.GetImage(),
-	}
-}
-
 // Init parses flags and execute if certain flags are enabled.
 func Init() (*flags.AgentFlags, string, bool) {
 	f := flags.NewAgentFlags(SIP.ProjectID, SIP.Zone, SIP.Instance, SIP.ProjectNumber, SIP.Image)
@@ -153,167 +130,16 @@ func LoggingSetupDefault(ctx context.Context, prefix string) {
 	log.SetupLogging(lp)
 }
 
-// InitCollection executes steps for initializing a collection.
-// The func is called at the beginning of every guest and sql collection.
-func InitCollection(ctx context.Context) (*wlm.WLM, error) {
-	wlm, err := wlm.NewWorkloadManager(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return wlm, nil
-}
-
-// CheckAgentStatus checks agent status. Return error if it failed to activate.
-func CheckAgentStatus(wlm wlm.WorkloadManagerService, path string) error {
-	agentStatus := activation.NewV1()
-	fp := filepath.Join(filepath.Dir(path), "google-cloud-sql-server-agent.activated")
-	if !agentStatus.IsAgentActive(fp) {
-		log.Logger.Info("Agent is not active. Activating the agent.")
-		isActive, err := agentStatus.Activate(wlm, fp, SIP.Name, SIP.ProjectID, SIP.Instance, SIP.InstanceID)
-		if isActive {
-			log.Logger.Info("Agent is activated.")
-			if err != nil {
-				log.Logger.Warnw("An error occured during the agent activation", "error", err)
-			}
-		} else {
-			return fmt.Errorf("Activation failed. Error: %v", err)
-		}
-	}
-	return nil
+// UsageMetricsLoggerInit initializes and returns usage metrics logger.
+func UsageMetricsLoggerInit(logName, logVersion, logPrefix string, logUsage bool) agentstatus.AgentStatus {
+	ap := agentstatus.NewAgentProperties(logName, logVersion, logPrefix, logUsage)
+	cp := agentstatus.NewCloudProperties(SIP.ProjectID, SIP.Zone, SIP.Instance, SIP.ProjectNumber, SIP.Image)
+	return agentstatus.NewUsageMetricsLogger(ap, cp, []string{})
 }
 
 // LoadConfiguration loads configuration from given path.
 func LoadConfiguration(path string) (*configpb.Configuration, error) {
 	return configuration.LoadConfiguration(path)
-}
-
-// ValidateCredCfgSQL wraps ValidateCredCfgSQL from configuration package.
-func ValidateCredCfgSQL(remote, windows bool, sqlCfg *configuration.SQLConfig, guestCfg *configuration.GuestConfig, instanceID, instanceName string) error {
-	return configuration.ValidateCredCfgSQL(remote, windows, sqlCfg, guestCfg, instanceID, instanceName)
-}
-
-// ValidateCredCfgGuest wraps ValidateCredCfgGuest from configuration package.
-func ValidateCredCfgGuest(remote, windows bool, guestCfg *configuration.GuestConfig, instanceID, instanceName string) error {
-	return configuration.ValidateCredCfgGuest(remote, windows, guestCfg, instanceID, instanceName)
-}
-
-// RunSQLCollection starts running sql collection based on given connection string.
-func RunSQLCollection(ctx context.Context, conn string, timeout time.Duration, windows bool) ([]internal.Details, error) {
-	c, err := sqlcollector.NewV1(driver, conn, windows, UsageMetricsLogger)
-	if err != nil {
-		return nil, err
-	}
-	defer c.Close()
-	// Start db collection.
-	log.Logger.Debug("Collecting SQL Server rules.")
-	details := c.CollectMasterRules(ctx, timeout)
-	log.Logger.Debug("Collecting SQL Server rules completes.")
-	return details, nil
-}
-
-// RunOSCollection starts running os collection.
-func RunOSCollection(ctx context.Context, c guestcollector.GuestCollector, timeout time.Duration) []internal.Details {
-	details := []internal.Details{}
-	log.Logger.Debug("Collecting guest rules")
-	details = append(details, c.CollectGuestRules(ctx, timeout))
-	err := guestcollector.MarkUnknownOsFields(&details)
-	if err != nil {
-		log.Logger.Warnf("RunOSCollection: Failed to mark unknown collected fields. error: %v", err)
-	}
-
-	log.Logger.Debug("Collecting guest rules completes")
-	return details
-}
-
-// SecretValue gets secret value from Secret Manager.
-func SecretValue(ctx context.Context, projectID string, secretName string) (string, error) {
-	log.Logger.Debug("Getting secret.")
-	smClient, err := secretmanager.NewClient(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer smClient.Close()
-	pswd, err := smClient.GetSecretValue(ctx, projectID, secretName)
-	if err != nil {
-		return "", err
-	}
-	log.Logger.Debug("Getting secret completes.")
-	return pswd, nil
-}
-
-// AllDisks attempts to call compute api to return all possible disks.
-func AllDisks(ctx context.Context, ip InstanceProperties) ([]*instanceinfo.Disks, error) {
-	tempGCE, err := gce.NewGCEClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	r := instanceinfo.New(tempGCE)
-	return r.AllDisks(ctx, ip.ProjectID, ip.Zone, ip.InstanceID)
-}
-
-// UpdateCollectedData constructs writeinsightrequest from given collected details.
-// The func will be called by both guest and sql collections.
-func UpdateCollectedData(wlmService wlm.WorkloadManagerService, sourceProps, targetProps InstanceProperties, details []internal.Details) {
-	sqlservervalidation := wlm.InitializeSQLServerValidation(sourceProps.ProjectID, targetProps.Instance)
-	sqlservervalidation = wlm.UpdateValidationDetails(sqlservervalidation, details)
-	writeInsightRequest := wlm.InitializeWriteInsightRequest(sqlservervalidation, targetProps.InstanceID)
-	writeInsightRequest.Insight.SentTime = time.Now().Format(time.RFC3339)
-	// update wlmService.Request to writeInsightRequest
-	wlmService.UpdateRequest(writeInsightRequest)
-}
-
-// SendRequestToWLM sends request to workloadmanager.
-func SendRequestToWLM(wlmService wlm.WorkloadManagerService, location string, retries int32, interval time.Duration) {
-	sendRequest := func() bool {
-		_, err := wlmService.SendRequest(location)
-		if err != nil {
-			log.Logger.Errorw("Failed to send request to workload manager", "error", err)
-			UsageMetricsLogger.Error(agentstatus.WorkloadManagerConnectionError)
-			return false
-		}
-		return true
-	}
-
-	if err := Retry(sendRequest, retries, interval); err != nil {
-		log.Logger.Errorw("Failed to retry sending request to workload manager", "error", err)
-		UsageMetricsLogger.Error(agentstatus.WorkloadManagerConnectionError)
-	}
-}
-
-// PersistCollectedData persists collected data in the file system.
-// The file name follows the format "[target]-[collectionType].json"
-// e.g. "localhost-guest.json"
-// The file is saved in the same location as log file.
-func PersistCollectedData(wlm *wlm.WLM, path string) error {
-	log.Logger.Debug("Saving collected result locally.")
-	requestJSON, err := internal.PrettyStruct(wlm.Request)
-	if err != nil {
-		return err
-	}
-	return internal.SaveToFile(path, []byte(requestJSON))
-}
-
-// Retry returns error if it exceeds max retries limits.
-func Retry(run func() bool, maxRetries int32, interval time.Duration) error {
-	if maxRetries == -1 {
-		for {
-			if !run() {
-				time.Sleep(interval)
-				continue
-			}
-			return nil
-		}
-	}
-
-	for retry := int32(0); retry < maxRetries; retry++ {
-		if !run() {
-			time.Sleep(interval)
-			continue
-		}
-		return nil
-	}
-	return fmt.Errorf("reached max retries")
 }
 
 // CollectionService runs the passed in collection as a service.
@@ -348,8 +174,182 @@ func CollectionService(p string, collection func(cfg *configpb.Configuration, on
 	}
 }
 
-// AddPhysicalDriveRemoteLinux adds physical drive to sql collection based off details for windows to remote linux instances
-func AddPhysicalDriveRemoteLinux(details []internal.Details, cred *configuration.GuestConfig) {
+// sourceInstanceProperties returns properties of the instance the agent is running on.
+func sourceInstanceProperties() InstanceProperties {
+	properties := metadataserver.CloudPropertiesWithRetry(backoff.NewConstantBackOff(30 * time.Second))
+	location := string(properties.GetZone()[0:strings.LastIndex(properties.GetZone(), "-")])
+	name := fmt.Sprintf("projects/%s/locations/%s", properties.GetProjectId(), location)
+	return InstanceProperties{
+		Name:          name,
+		ProjectID:     properties.GetProjectId(),
+		ProjectNumber: properties.GetNumericProjectId(),
+		InstanceID:    properties.GetInstanceId(),
+		Instance:      properties.GetInstanceName(),
+		Zone:          properties.GetZone(),
+		Image:         properties.GetImage(),
+	}
+}
+
+// initCollection executes steps for initializing a collection.
+// The func is called at the beginning of every guest and sql collection.
+func initCollection(ctx context.Context) (*wlm.WLM, error) {
+	wlm, err := wlm.NewWorkloadManager(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return wlm, nil
+}
+
+// checkAgentStatus checks agent status. Return error if it failed to activate.
+func checkAgentStatus(wlm wlm.WorkloadManagerService, path string) error {
+	agentStatus := activation.NewV1()
+	fp := filepath.Join(filepath.Dir(path), "google-cloud-sql-server-agent.activated")
+	if !agentStatus.IsAgentActive(fp) {
+		log.Logger.Info("Agent is not active. Activating the agent.")
+		isActive, err := agentStatus.Activate(wlm, fp, SIP.Name, SIP.ProjectID, SIP.Instance, SIP.InstanceID)
+		if isActive {
+			log.Logger.Info("Agent is activated.")
+			if err != nil {
+				log.Logger.Warnw("An error occured during the agent activation", "error", err)
+			}
+		} else {
+			return fmt.Errorf("Activation failed. Error: %v", err)
+		}
+	}
+	return nil
+}
+
+// validateCredCfgSQL wraps ValidateCredCfgSQL from configuration package.
+func validateCredCfgSQL(remote, windows bool, sqlCfg *configuration.SQLConfig, guestCfg *configuration.GuestConfig, instanceID, instanceName string) error {
+	return configuration.ValidateCredCfgSQL(remote, windows, sqlCfg, guestCfg, instanceID, instanceName)
+}
+
+// validateCredCfgGuest wraps ValidateCredCfgGuest from configuration package.
+func validateCredCfgGuest(remote, windows bool, guestCfg *configuration.GuestConfig, instanceID, instanceName string) error {
+	return configuration.ValidateCredCfgGuest(remote, windows, guestCfg, instanceID, instanceName)
+}
+
+// runSQLCollection starts running sql collection based on given connection string.
+func runSQLCollection(ctx context.Context, conn string, timeout time.Duration, windows bool) ([]internal.Details, error) {
+	c, err := sqlcollector.NewV1(driver, conn, windows, UsageMetricsLogger)
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+	// Start db collection.
+	log.Logger.Debug("Collecting SQL Server rules.")
+	details := c.CollectMasterRules(ctx, timeout)
+	log.Logger.Debug("Collecting SQL Server rules completes.")
+	return details, nil
+}
+
+// runOSCollection starts running os collection.
+func runOSCollection(ctx context.Context, c guestcollector.GuestCollector, timeout time.Duration) []internal.Details {
+	details := []internal.Details{}
+	log.Logger.Debug("Collecting guest rules")
+	details = append(details, c.CollectGuestRules(ctx, timeout))
+	err := guestcollector.MarkUnknownOsFields(&details)
+	if err != nil {
+		log.Logger.Warnf("RunOSCollection: Failed to mark unknown collected fields. error: %v", err)
+	}
+
+	log.Logger.Debug("Collecting guest rules completes")
+	return details
+}
+
+// secretValue gets secret value from Secret Manager.
+func secretValue(ctx context.Context, projectID string, secretName string) (string, error) {
+	log.Logger.Debug("Getting secret.")
+	smClient, err := secretmanager.NewClient(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer smClient.Close()
+	pswd, err := smClient.GetSecretValue(ctx, projectID, secretName)
+	if err != nil {
+		return "", err
+	}
+	log.Logger.Debug("Getting secret completes.")
+	return pswd, nil
+}
+
+// allDisks attempts to call compute api to return all possible disks.
+func allDisks(ctx context.Context, ip InstanceProperties) ([]*instanceinfo.Disks, error) {
+	tempGCE, err := gce.NewGCEClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	r := instanceinfo.New(tempGCE)
+	return r.AllDisks(ctx, ip.ProjectID, ip.Zone, ip.InstanceID)
+}
+
+// updateCollectedData constructs writeinsightrequest from given collected details.
+// The func will be called by both guest and sql collections.
+func updateCollectedData(wlmService wlm.WorkloadManagerService, sourceProps, targetProps InstanceProperties, details []internal.Details) {
+	sqlservervalidation := wlm.InitializeSQLServerValidation(sourceProps.ProjectID, targetProps.Instance)
+	sqlservervalidation = wlm.UpdateValidationDetails(sqlservervalidation, details)
+	writeInsightRequest := wlm.InitializeWriteInsightRequest(sqlservervalidation, targetProps.InstanceID)
+	writeInsightRequest.Insight.SentTime = time.Now().Format(time.RFC3339)
+	// update wlmService.Request to writeInsightRequest
+	wlmService.UpdateRequest(writeInsightRequest)
+}
+
+// sendRequestToWLM sends request to workloadmanager.
+func sendRequestToWLM(wlmService wlm.WorkloadManagerService, location string, retries int32, interval time.Duration) {
+	sendRequest := func() bool {
+		_, err := wlmService.SendRequest(location)
+		if err != nil {
+			log.Logger.Errorw("Failed to send request to workload manager", "error", err)
+			UsageMetricsLogger.Error(agentstatus.WorkloadManagerConnectionError)
+			return false
+		}
+		return true
+	}
+
+	if err := retry(sendRequest, retries, interval); err != nil {
+		log.Logger.Errorw("Failed to retry sending request to workload manager", "error", err)
+		UsageMetricsLogger.Error(agentstatus.WorkloadManagerConnectionError)
+	}
+}
+
+// persistCollectedData persists collected data in the file system.
+// The file name follows the format "[target]-[collectionType].json"
+// e.g. "localhost-guest.json"
+// The file is saved in the same location as log file.
+func persistCollectedData(wlm *wlm.WLM, path string) error {
+	log.Logger.Debug("Saving collected result locally.")
+	requestJSON, err := internal.PrettyStruct(wlm.Request)
+	if err != nil {
+		return err
+	}
+	return internal.SaveToFile(path, []byte(requestJSON))
+}
+
+// retry returns error if it exceeds max retries limits.
+func retry(run func() bool, maxRetries int32, interval time.Duration) error {
+	if maxRetries == -1 {
+		for {
+			if !run() {
+				time.Sleep(interval)
+				continue
+			}
+			return nil
+		}
+	}
+
+	for retry := int32(0); retry < maxRetries; retry++ {
+		if !run() {
+			time.Sleep(interval)
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf("reached max retries")
+}
+
+// addPhysicalDriveRemoteLinux adds physical drive to sql collection based off details for windows to remote linux instances
+func addPhysicalDriveRemoteLinux(details []internal.Details, cred *configuration.GuestConfig) {
 	user := cred.GuestUserName
 	port := cred.GuestPortNumber
 	ip := cred.ServerName
@@ -418,8 +418,8 @@ func AddPhysicalDriveRemoteLinux(details []internal.Details, cred *configuration
 	}
 }
 
-// AddPhysicalDriveLocal starts physical drive to physical path mapping
-func AddPhysicalDriveLocal(ctx context.Context, details []internal.Details, windows bool) {
+// addPhysicalDriveLocal starts physical drive to physical path mapping
+func addPhysicalDriveLocal(ctx context.Context, details []internal.Details, windows bool) {
 	for _, detail := range details {
 		if detail.Name != "DB_LOG_DISK_SEPARATION" {
 			continue
@@ -435,17 +435,17 @@ func AddPhysicalDriveLocal(ctx context.Context, details []internal.Details, wind
 	}
 }
 
-// InitDetails returns empty array of internal.Details
-func InitDetails() []internal.Details {
+// initDetails returns empty array of internal.Details
+func initDetails() []internal.Details {
 	return []internal.Details{}
 }
 
-// SQLConfigFromCredential wraps the function SQLConfigFromCredential in configuration package.
-func SQLConfigFromCredential(cred *configpb.CredentialConfiguration) []*configuration.SQLConfig {
+// sqlConfigFromCredential wraps the function SQLConfigFromCredential in configuration package.
+func sqlConfigFromCredential(cred *configpb.CredentialConfiguration) []*configuration.SQLConfig {
 	return configuration.SQLConfigFromCredential(cred)
 }
 
-// GuestConfigFromCredential wraps the function GuestConfigFromCredential in configuration package.
-func GuestConfigFromCredential(cred *configpb.CredentialConfiguration) *configuration.GuestConfig {
+// guestConfigFromCredential wraps the function GuestConfigFromCredential in configuration package.
+func guestConfigFromCredential(cred *configpb.CredentialConfiguration) *configuration.GuestConfig {
 	return configuration.GuestConfigFromCredential(cred)
 }
