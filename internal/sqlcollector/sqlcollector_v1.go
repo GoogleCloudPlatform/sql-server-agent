@@ -21,9 +21,9 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/log"
 )
 
 // V1 that execute cmd and connect to SQL server.

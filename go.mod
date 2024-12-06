@@ -1,8 +1,8 @@
 module github.com/GoogleCloudPlatform/sql-server-agent
 
-go 1.21
+go 1.23
 
-toolchain go1.21.0
+toolchain go1.23.0
 
 replace github.com/GoogleCloudPlatform/sql-server-agent/internal => ./internal
 

@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/kardianos/service"
-	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/log"
 )
 
 type program struct {

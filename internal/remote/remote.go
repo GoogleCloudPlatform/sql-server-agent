@@ -29,8 +29,8 @@ import (
 
 	"golang.org/x/crypto/ssh/knownhosts"
 	"golang.org/x/crypto/ssh"
-	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/log"
 )
 
 // SSHClientInterface abstracts the client struct from ssh package
@@ -97,12 +97,12 @@ func (r *remote) SetupKeys(privateKeyPath string) error {
 func (r *remote) privateKey(privateKeyPath string) error {
 	privateKeyBytes, err := os.ReadFile(privateKeyPath)
 	if err != nil {
-		return fmt.Errorf("an error occured while reading the key file. %v", err)
+		return fmt.Errorf("an error occurred while reading the key file. %v", err)
 	}
 
 	privateKey, err := ssh.ParsePrivateKey(privateKeyBytes)
 	if err != nil {
-		return fmt.Errorf("an error occured while parsing the private key. %v", err)
+		return fmt.Errorf("an error occurred while parsing the private key. %v", err)
 	}
 
 	r.key.PrivateKey = privateKey
@@ -115,7 +115,7 @@ func (r *remote) publicKey(host, knownHostsPath string) error {
 	// ssh or use ssh-keyscan to get initial key
 	fd, err := os.Open(knownHostsPath)
 	if err != nil {
-		return fmt.Errorf("an error occured when opening known_hosts. %v", err)
+		return fmt.Errorf("an error occurred when opening known_hosts. %v", err)
 	}
 	defer fd.Close()
 
@@ -158,7 +158,7 @@ func (r *remote) CreateClient() error {
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("an error occured while ssh dialing. %v", err)
+		return fmt.Errorf("an error occurred while ssh dialing. %v", err)
 	}
 	r.client = c
 	return nil
@@ -187,7 +187,7 @@ func (r *remote) Close() error {
 func (r *remote) Run(cmd string, session SSHSessionInterface) (string, error) {
 	output, err := session.Output(cmd)
 	if err != nil {
-		return "", fmt.Errorf("An error occured while running the cmd %v, %v", cmd, err)
+		return "", fmt.Errorf("An error occurred while running the cmd %v, %v", cmd, err)
 	}
 	return strings.TrimSuffix(string(output), "\n"), nil
 }

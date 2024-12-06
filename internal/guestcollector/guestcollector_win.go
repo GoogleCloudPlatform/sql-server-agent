@@ -27,9 +27,9 @@ import (
 	"time"
 
 	"github.com/StackExchange/wmi"
-	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/log"
 )
 
 // WindowsCollector is the collector for windows system.

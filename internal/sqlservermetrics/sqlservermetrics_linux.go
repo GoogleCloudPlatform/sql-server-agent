@@ -22,10 +22,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/guestcollector"
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/log"
 )
 
 // LogPrefix is the log prefix for linux.

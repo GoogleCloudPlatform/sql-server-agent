@@ -25,12 +25,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/gce/metadataserver"
+
 	backoff "github.com/cenkalti/backoff/v4"
 	"go.uber.org/zap/zapcore"
-	"github.com/GoogleCloudPlatform/sapagent/shared/commandlineexecutor"
-	"github.com/GoogleCloudPlatform/sapagent/shared/gce"
-	"github.com/GoogleCloudPlatform/sapagent/shared/gce/metadataserver"
-	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/activation"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/configuration"
@@ -43,6 +41,9 @@ import (
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/sqlcollector"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/wlm"
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/commandlineexecutor"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/gce"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/log"
 )
 
 const (
@@ -176,17 +177,17 @@ func CollectionService(p string, collection func(cfg *configpb.Configuration, on
 
 // sourceInstanceProperties returns properties of the instance the agent is running on.
 func sourceInstanceProperties() InstanceProperties {
-	properties := metadataserver.CloudPropertiesWithRetry(backoff.NewConstantBackOff(30 * time.Second))
-	location := string(properties.GetZone()[0:strings.LastIndex(properties.GetZone(), "-")])
-	name := fmt.Sprintf("projects/%s/locations/%s", properties.GetProjectId(), location)
+	properties := metadataserver.ReadCloudPropertiesWithRetry(backoff.NewConstantBackOff(30 * time.Second))
+	location := string(properties.Zone[0:strings.LastIndex(properties.Zone, "-")])
+	name := fmt.Sprintf("projects/%s/locations/%s", properties.ProjectID, location)
 	return InstanceProperties{
 		Name:          name,
-		ProjectID:     properties.GetProjectId(),
-		ProjectNumber: properties.GetNumericProjectId(),
-		InstanceID:    properties.GetInstanceId(),
-		Instance:      properties.GetInstanceName(),
-		Zone:          properties.GetZone(),
-		Image:         properties.GetImage(),
+		ProjectID:     properties.ProjectID,
+		ProjectNumber: properties.NumericProjectID,
+		InstanceID:    properties.InstanceID,
+		Instance:      properties.InstanceName,
+		Zone:          properties.Zone,
+		Image:         properties.Image,
 	}
 }
 
@@ -210,7 +211,7 @@ func checkAgentStatus(wlm wlm.WorkloadManagerService, path string) error {
 		if isActive {
 			log.Logger.Info("Agent is activated.")
 			if err != nil {
-				log.Logger.Warnw("An error occured during the agent activation", "error", err)
+				log.Logger.Warnw("An error occurred during the agent activation", "error", err)
 			}
 		} else {
 			return fmt.Errorf("Activation failed. Error: %v", err)
@@ -427,7 +428,7 @@ func addPhysicalDriveLocal(ctx context.Context, details []internal.Details, wind
 		for _, field := range detail.Fields {
 			physicalPath, pathExists := field["physical_name"]
 			if !pathExists {
-				log.Logger.Warn("physical_name field for DB_LOG_DISK_SEPERATION does not exist")
+				log.Logger.Warn("physical_name field for DB_LOG_DISK_SEPARATION does not exist")
 				continue
 			}
 			field["physical_drive"] = internal.GetPhysicalDriveFromPath(ctx, physicalPath, windows, commandlineexecutor.ExecuteCommand)

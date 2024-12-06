@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GoogleCloudPlatform/sapagent/shared/commandlineexecutor"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/commandlineexecutor"
 )
 
 func TestConvertHexStringToBoolean(t *testing.T) {
@@ -242,7 +242,7 @@ func TestPrettyStruct(t *testing.T) {
 		}
 
 		if gotErr := err != nil; gotErr != tc.wantErr {
-			t.Errorf("PrettyStruct() = %v, want error presense = %v", err, tc.wantErr)
+			t.Errorf("PrettyStruct() = %v, want error presence = %v", err, tc.wantErr)
 			continue
 		}
 
@@ -265,7 +265,7 @@ func TestCommandLineExecutorWrapper(t *testing.T) {
 			want:        "",
 		},
 		{
-			executable: "testSuccesss",
+			executable: "testSuccess",
 			exec: func(context.Context, commandlineexecutor.Params) commandlineexecutor.Result {
 				return commandlineexecutor.Result{StdOut: "success"}
 			},

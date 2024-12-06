@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoogleCloudPlatform/sapagent/shared/commandlineexecutor"
-	"github.com/GoogleCloudPlatform/sapagent/shared/log"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/commandlineexecutor"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/log"
 
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/instanceinfo"
@@ -48,7 +48,7 @@ const (
 	localSSDCommandForSuse         = "sudo hwinfo --disk"
 	powerPlanCommand               = "sudo tuned-adm active"
 	dataDiskAllocationUnitsCommand = "sudo blockdev --getbsz /dev/"
-	gcbdrAgentRunningCommnad       = "sudo systemctl status udsagent | grep \"Active: \""
+	gcbdrAgentRunningCommand       = "sudo systemctl status udsagent | grep \"Active: \""
 	persistentDisk                 = "PersistentDisk"
 	ephemeralDisk                  = "EphemeralDisk"
 )
@@ -262,7 +262,7 @@ func NewLinuxCollector(disks []*instanceinfo.Disks, ipAddr, username, privateKey
 		},
 	}
 	c.guestRuleCommandMap[internal.GCBDRAgentRunning] = commandExecutor{
-		command: gcbdrAgentRunningCommnad,
+		command: gcbdrAgentRunningCommand,
 		isRule:  true,
 		runCommand: func(ctx context.Context, command string) (string, error) {
 			res, err := internal.CommandLineExecutorWrapper(ctx, "/bin/sh", fmt.Sprintf(" -c '%s'", command), commandlineexecutor.ExecuteCommand)
@@ -330,7 +330,7 @@ func DiskToDiskType(fields map[string]string, disks []*instanceinfo.Disks, usage
 	}
 	r, err := json.Marshal(logicalToTypeMap)
 	if err != nil {
-		log.Logger.Errorw("An error occured while serializing disk info to JSON", "error", err)
+		log.Logger.Errorw("An error occurred while serializing disk info to JSON", "error", err)
 		usageMetricLogger.Error(agentstatus.InvalidJSONFormatError)
 	}
 	if len(logicalToTypeMap) == 0 {

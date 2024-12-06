@@ -22,10 +22,10 @@ import (
 	"fmt"
 
 	_ "github.com/microsoft/go-mssqldb"
-	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/daemon"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/sqlservermetrics"
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/log"
 )
 
 func main() {

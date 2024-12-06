@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 
 	"google.golang.org/protobuf/encoding/protojson"
-	"github.com/GoogleCloudPlatform/sapagent/shared/log"
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/log"
 )
 
 var (

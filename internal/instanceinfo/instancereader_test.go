@@ -22,7 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	compute "google.golang.org/api/compute/v1"
-	"github.com/GoogleCloudPlatform/sapagent/shared/gce/fake"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/gce/fake"
 )
 
 func TestGetDeviceTypeForLinux(t *testing.T) {
