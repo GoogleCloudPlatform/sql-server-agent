@@ -19,17 +19,17 @@ replace github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentcon
 require (
   cloud.google.com/go/secretmanager v1.11.5
   github.com/DATA-DOG/go-sqlmock v1.5.0
-  github.com/GoogleCloudPlatform/sapagent v0.0.0-20240712131525-786126f93c42
+  github.com/GoogleCloudPlatform/workloadagentplatform/integration/common v0.0.0-20250130120719-3629ab2f4c43
   github.com/StackExchange/wmi v1.2.1
   github.com/cenkalti/backoff/v4 v4.2.1
   github.com/google/go-cmp v0.6.0
-  github.com/jonboulle/clockwork v0.3.0
+  github.com/jonboulle/clockwork v0.4.1-0.20230717050334-b1209715e43c
   github.com/kardianos/service v1.2.2
   github.com/microsoft/go-mssqldb v1.4.0
-  go.uber.org/zap v1.25.0
+  go.uber.org/zap v1.27.0
   golang.org/x/crypto v0.21.0
   google.golang.org/api v0.168.0
-  google.golang.org/protobuf v1.32.0
+  google.golang.org/protobuf v1.36.4
 )
 
 require (
@@ -39,6 +39,7 @@ require (
   cloud.google.com/go/iam v1.1.6 // indirect
   cloud.google.com/go/logging v1.9.0 // indirect
   cloud.google.com/go/longrunning v0.5.5 // indirect
+  github.com/GoogleCloudPlatform/workloadagentplatform/sharedprotos v0.0.0-20250130133413-c271b7e1b5ad // indirect
   github.com/felixge/httpsnoop v1.0.4 // indirect
   github.com/go-logr/logr v1.4.1 // indirect
   github.com/go-logr/stdr v1.2.2 // indirect
