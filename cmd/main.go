@@ -25,7 +25,7 @@ import (
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/daemon"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/sqlservermetrics"
 	configpb "github.com/GoogleCloudPlatform/sql-server-agent/protos/sqlserveragentconfig"
-	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/log"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/sharedlibraries/log"
 )
 
 func main() {

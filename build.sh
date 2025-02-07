@@ -10,7 +10,7 @@ set -exu
 echo "Starting the build process for the SQL Server Agent..."
 
 echo "**************  Getting go 1.21"
-wget -q https://go.dev/dl/go1.23.0.linux-amd64.tar.gz
+curl -sLOS https://go.dev/dl/go1.23.2.linux-amd64.tar.gz
 mkdir -p /tmp/sqlserveragent
 tar -C /tmp/sqlserveragent -xzf go1.23.0.linux-amd64.tar.gz
 export GOROOT=/tmp/sqlserveragent/go

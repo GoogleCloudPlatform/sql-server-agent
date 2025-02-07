@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/commandlineexecutor"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/sharedlibraries/commandlineexecutor"
 )
 
 func TestConvertHexStringToBoolean(t *testing.T) {

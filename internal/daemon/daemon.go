@@ -22,7 +22,7 @@ import (
 
 	"github.com/kardianos/service"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/agentstatus"
-	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/log"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/sharedlibraries/log"
 )
 
 type program struct {

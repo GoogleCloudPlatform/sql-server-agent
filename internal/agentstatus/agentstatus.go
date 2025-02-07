@@ -19,7 +19,7 @@ package agentstatus
 
 import (
 	"github.com/jonboulle/clockwork"
-	"github.com/GoogleCloudPlatform/workloadagentplatform/integration/common/shared/usagemetrics"
+	"github.com/GoogleCloudPlatform/workloadagentplatform/sharedlibraries/usagemetrics"
 )
 
 // AgentStatus interface.
