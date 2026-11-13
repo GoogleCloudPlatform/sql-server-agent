@@ -152,6 +152,50 @@ func CommandLineExecutorWrapper(ctx context.Context, executable string, argsToSp
 	return strings.TrimSuffix(result.StdOut, "\n"), nil
 }
 
+// safeLinuxPathRegex is a strict allow-list for absolute Linux file paths. It intentionally excludes
+// shell metacharacters (quotes, backticks, $, ;, |, &, <, >, whitespace, glob characters, etc.).
+var safeLinuxPathRegex = regexp.MustCompile(`^/[A-Za-z0-9_./-]*$`)
+
+// IsSafeLinuxPath reports whether path is an absolute Linux path consisting only of characters
+// that are safe to pass to commands such as find and df, including over a remote shell.
+func IsSafeLinuxPath(path string) bool {
+	return safeLinuxPathRegex.MatchString(path)
+}
+
+// commandLineExecutorArgs executes the given executable with an explicit argument list
+// (no shell interpretation).
+func commandLineExecutorArgs(ctx context.Context, executable string, args []string, exec commandlineexecutor.Execute) (string, error) {
+	result := exec(ctx, commandlineexecutor.Params{
+		Executable: executable,
+		Args:       args,
+	})
+	if result.Error != nil {
+		return "", fmt.Errorf("Error when running CommandLineExecutor: %s", result.StdErr)
+	}
+	return strings.TrimSuffix(result.StdOut, "\n"), nil
+}
+
+// firstLine returns the first non-empty line of s with surrounding whitespace trimmed.
+func firstLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			return line
+		}
+	}
+	return ""
+}
+
+// lastLine returns the last non-empty line of s with surrounding whitespace trimmed.
+func lastLine(s string) string {
+	lines := strings.Split(s, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if line := strings.TrimSpace(lines[i]); line != "" {
+			return line
+		}
+	}
+	return ""
+}
+
 // GetPhysicalDriveFromPath gets the physical drive associated with a file path for linux and windows env
 func GetPhysicalDriveFromPath(ctx context.Context, path string, windows bool, exec commandlineexecutor.Execute) string {
 
@@ -166,27 +210,40 @@ func GetPhysicalDriveFromPath(ctx context.Context, path string, windows bool, ex
 		return mapping[0]
 	}
 
+	// The path originates from SQL Server (sys.master_files.physical_name) and must be treated as
+	// untrusted input. Validate it against a strict allow-list and never pass it through a shell.
+	if !IsSafeLinuxPath(path) {
+		log.Logger.Warnw("Physical path contains disallowed characters; skipping physical drive lookup.", "path", path)
+		return "unknown"
+	}
+
 	dir, filename := filepath.Split(path)
-	filePath, filePathErr := CommandLineExecutorWrapper(ctx, "/bin/sh", fmt.Sprintf(" -c 'find %s -type f -iname \"%s\" -print'", dir, filename), exec)
+	filePathOut, filePathErr := commandLineExecutorArgs(ctx, "find", []string{dir, "-type", "f", "-iname", filename, "-print"}, exec)
 	if filePathErr != nil {
 		log.Logger.Warn(filePathErr)
 		return "unknown"
 	}
+	filePath := firstLine(filePathOut)
+	if !IsSafeLinuxPath(filePath) {
+		log.Logger.Warnw("Resolved file path contains disallowed characters; skipping physical drive lookup.", "path", filePath)
+		return "unknown"
+	}
 
-	physicalPathMount, physicalPathErr := CommandLineExecutorWrapper(ctx, "/bin/sh", fmt.Sprintf(" -c 'df --output=target %s| tail -n 1'", filePath), exec)
+	dfOut, physicalPathErr := commandLineExecutorArgs(ctx, "df", []string{"--output=target", filePath}, exec)
 	if physicalPathErr != nil {
 		log.Logger.Warn(physicalPathErr)
 		return "unknown"
 	}
+	physicalPathMount := lastLine(dfOut)
 
-	resultMount, mountErr := CommandLineExecutorWrapper(ctx, "/bin/sh", fmt.Sprintf(" -c ' mount |grep sd'"), exec)
+	resultMount, mountErr := CommandLineExecutorWrapper(ctx, "/bin/sh", " -c ' mount |grep sd'", exec)
 	if mountErr != nil {
 		log.Logger.Warn(mountErr)
 		return "unknown"
 	}
 
 	allMounts := strings.TrimSuffix(resultMount, "\n")
-	physicalDriveHelper := regexp.MustCompile(` `+physicalPathMount+` `).Split(allMounts, -1)
+	physicalDriveHelper := regexp.MustCompile(` `+regexp.QuoteMeta(physicalPathMount)+` `).Split(allMounts, -1)
 
 	physicalDrives := []string{}
 	for i := 0; i < len(physicalDriveHelper)-1; i++ {

@@ -377,15 +377,26 @@ func addPhysicalDriveRemoteLinux(details []internal.Details, cred *configuration
 				log.Logger.Warn("physical_name field for DB_LOG_DISK_SEPERATION does not exist")
 				continue
 			}
-			dir, filePath := filepath.Split(physicalPath)
-			findCommand := fmt.Sprintf(commandFind, dir, filePath)
+			// physical_name comes from SQL Server and is untrusted. It is interpolated into commands
+			// executed by the remote shell, so it must pass a strict allow-list first.
+			if !internal.IsSafeLinuxPath(physicalPath) {
+				log.Logger.Warnw("physical_name contains disallowed characters; skipping physical drive lookup.", "physical_name", physicalPath)
+				continue
+			}
+			dir, fileName := filepath.Split(physicalPath)
+			findCommand := fmt.Sprintf(commandFind, dir, fileName)
 
-			filePath, filePathErr := remote.RunCommandWithPipes(findCommand, r)
+			findOutput, filePathErr := remote.RunCommandWithPipes(findCommand, r)
 			if filePathErr != nil {
 				log.Logger.Warnf("Failed to run cmd %v. error: %v", findCommand, filePathErr)
 				continue
 			}
-			filePath = strings.TrimSuffix(filePath, "\n")
+			filePath := strings.TrimSpace(strings.SplitN(strings.TrimSpace(findOutput), "\n", 2)[0])
+			// The find output is fed back into another remote command; validate it as well.
+			if !internal.IsSafeLinuxPath(filePath) {
+				log.Logger.Warnw("Resolved file path contains disallowed characters; skipping physical drive lookup.", "path", filePath)
+				continue
+			}
 
 			command := fmt.Sprintf(commandDf, filePath)
 			physicalPathMount, physicalPathErr := remote.RunCommandWithPipes(command, r)
@@ -402,7 +413,7 @@ func addPhysicalDriveRemoteLinux(details []internal.Details, cred *configuration
 			}
 
 			allMounts := strings.TrimSuffix(resultMount, "\n")
-			physicalDriveHelper := regexp.MustCompile(` `+physicalPathMount+` `).Split(allMounts, -1)
+			physicalDriveHelper := regexp.MustCompile(` `+regexp.QuoteMeta(physicalPathMount)+` `).Split(allMounts, -1)
 
 			physicalDrives := []string{}
 			for i := 0; i < len(physicalDriveHelper)-1; i++ {

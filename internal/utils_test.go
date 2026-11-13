@@ -329,49 +329,49 @@ func TestGetPhysicalDriveFromPath(t *testing.T) {
 			want:    "unknown",
 		},
 		{
-			path:    "test happy path linux",
+			path:    "/var/opt/mssql/data/master.mdf",
 			windows: false,
 			exec: func(ctx context.Context, params commandlineexecutor.Params) commandlineexecutor.Result {
-				if strings.Contains(params.ArgsToSplit, "df") {
+				if params.Executable == "df" {
 					return commandlineexecutor.Result{StdOut: "/"}
 				} else if strings.Contains(params.ArgsToSplit, "mount") {
 					return commandlineexecutor.Result{StdOut: "/dev/sda1 on / type"}
 				}
-				return commandlineexecutor.Result{StdOut: "success"}
+				return commandlineexecutor.Result{StdOut: "/var/opt/mssql/data/master.mdf"}
 			},
 			want: "sda1",
 		},
 		{
-			path:    "find file path failed",
+			path:    "/var/opt/mssql/data/master.mdf",
 			windows: false,
 			exec: func(ctx context.Context, params commandlineexecutor.Params) commandlineexecutor.Result {
-				if strings.Contains(params.ArgsToSplit, "df") {
+				if params.Executable == "df" {
 					return commandlineexecutor.Result{Error: errors.New("")}
 				} else if strings.Contains(params.ArgsToSplit, "mount") {
 					return commandlineexecutor.Result{StdOut: "/dev/sda1 on / type"}
 				}
-				return commandlineexecutor.Result{StdOut: "success"}
+				return commandlineexecutor.Result{StdOut: "/var/opt/mssql/data/master.mdf"}
 			},
 			want: "unknown",
 		},
 		{
-			path:    "find file path failed",
+			path:    "/var/opt/mssql/data/master.mdf",
 			windows: false,
 			exec: func(ctx context.Context, params commandlineexecutor.Params) commandlineexecutor.Result {
-				if strings.Contains(params.ArgsToSplit, "df") {
+				if params.Executable == "df" {
 					return commandlineexecutor.Result{StdOut: "/"}
 				} else if strings.Contains(params.ArgsToSplit, "mount") {
 					return commandlineexecutor.Result{Error: errors.New("")}
 				}
-				return commandlineexecutor.Result{StdOut: "success"}
+				return commandlineexecutor.Result{StdOut: "/var/opt/mssql/data/master.mdf"}
 			},
 			want: "unknown",
 		},
 		{
-			path:    "find file path failed",
+			path:    "/var/opt/mssql/data/master.mdf",
 			windows: false,
 			exec: func(ctx context.Context, params commandlineexecutor.Params) commandlineexecutor.Result {
-				if strings.Contains(params.ArgsToSplit, "df") {
+				if params.Executable == "df" {
 					return commandlineexecutor.Result{StdOut: "/"}
 				} else if strings.Contains(params.ArgsToSplit, "mount") {
 					return commandlineexecutor.Result{StdOut: "/dev/sda1 on / type"}
@@ -379,6 +379,65 @@ func TestGetPhysicalDriveFromPath(t *testing.T) {
 				return commandlineexecutor.Result{StdOut: "success", Error: errors.New("")}
 			},
 			want: "unknown",
+		},
+		{
+			path:    "/tmp/$(touch /tmp/pwned)/x.mdf",
+			windows: false,
+			exec: func(ctx context.Context, params commandlineexecutor.Params) commandlineexecutor.Result {
+				return commandlineexecutor.Result{Error: errors.New("command must not be executed for unsafe paths")}
+			},
+			want: "unknown",
+		},
+		{
+			path:    "/var/opt/mssql/data/x';id;'.mdf",
+			windows: false,
+			exec: func(ctx context.Context, params commandlineexecutor.Params) commandlineexecutor.Result {
+				return commandlineexecutor.Result{Error: errors.New("command must not be executed for unsafe paths")}
+			},
+			want: "unknown",
+		},
+		{
+			// Unsafe output of find must not be passed on to df.
+			path:    "/var/opt/mssql/data/master.mdf",
+			windows: false,
+			exec: func(ctx context.Context, params commandlineexecutor.Params) commandlineexecutor.Result {
+				if params.Executable == "find" {
+					return commandlineexecutor.Result{StdOut: "/var/opt/$(id)/master.mdf\n"}
+				}
+				if params.Executable == "df" {
+					return commandlineexecutor.Result{StdOut: "Mounted on\n/\n"}
+				} else if strings.Contains(params.ArgsToSplit, "mount") {
+					return commandlineexecutor.Result{StdOut: "/dev/sda1 on / type"}
+				}
+				return commandlineexecutor.Result{Error: errors.New("unexpected command")}
+			},
+			want: "unknown",
+		},
+		{
+			// find and df are invoked directly with explicit arguments (no shell).
+			path:    "/var/opt/mssql/data/master.mdf",
+			windows: false,
+			exec: func(ctx context.Context, params commandlineexecutor.Params) commandlineexecutor.Result {
+				switch params.Executable {
+				case "find":
+					want := []string{"/var/opt/mssql/data/", "-type", "f", "-iname", "master.mdf", "-print"}
+					if params.ArgsToSplit != "" || strings.Join(params.Args, " ") != strings.Join(want, " ") {
+						return commandlineexecutor.Result{Error: errors.New("unexpected find args")}
+					}
+					return commandlineexecutor.Result{StdOut: "/var/opt/mssql/data/master.mdf\n"}
+				case "df":
+					want := []string{"--output=target", "/var/opt/mssql/data/master.mdf"}
+					if params.ArgsToSplit != "" || strings.Join(params.Args, " ") != strings.Join(want, " ") {
+						return commandlineexecutor.Result{Error: errors.New("unexpected df args")}
+					}
+					return commandlineexecutor.Result{StdOut: "Mounted on\n/var/opt/mssql\n"}
+				}
+				if strings.Contains(params.ArgsToSplit, "mount") {
+					return commandlineexecutor.Result{StdOut: "/dev/sdb1 on /var/opt/mssql type ext4"}
+				}
+				return commandlineexecutor.Result{Error: errors.New("unexpected command")}
+			},
+			want: "sdb1",
 		},
 	}
 
@@ -388,6 +447,35 @@ func TestGetPhysicalDriveFromPath(t *testing.T) {
 		got := GetPhysicalDriveFromPath(ctx, tc.path, tc.windows, tc.exec)
 		if got != tc.want {
 			t.Errorf("GetPhysicalDriveFromPath(%v, %v) = %v, want: %v", tc.path, tc.windows, got, tc.want)
+		}
+	}
+}
+
+func TestIsSafeLinuxPath(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{path: "/var/opt/mssql/data/master.mdf", want: true},
+		{path: "/var/opt/mssql-2/data_1/my.db.ldf", want: true},
+		{path: "", want: false},
+		{path: "relative/path.mdf", want: false},
+		{path: "-exec/x.mdf", want: false},
+		{path: "/tmp/$(touch /tmp/pwned)/x.mdf", want: false},
+		{path: "/tmp/`id`/x.mdf", want: false},
+		{path: "/tmp/x';id;'.mdf", want: false},
+		{path: "/tmp/x\"|id|\".mdf", want: false},
+		{path: "/tmp/x;id.mdf", want: false},
+		{path: "/tmp/x&id.mdf", want: false},
+		{path: "/tmp/x>y.mdf", want: false},
+		{path: "/tmp/x y.mdf", want: false},
+		{path: "/tmp/x\nid.mdf", want: false},
+		{path: "/tmp/*.mdf", want: false},
+		{path: "C:\\data\\master.mdf", want: false},
+	}
+	for _, tc := range tests {
+		if got := IsSafeLinuxPath(tc.path); got != tc.want {
+			t.Errorf("IsSafeLinuxPath(%q) = %v, want: %v", tc.path, got, tc.want)
 		}
 	}
 }
