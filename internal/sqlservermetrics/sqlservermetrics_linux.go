@@ -39,8 +39,10 @@ func ConfigPath() string {
 }
 
 // AgentFilePath is the agent file path for linux.
+// It must be a root-owned directory (not a world-writable one such as /tmp)
+// because the agent persists its activation state there.
 func AgentFilePath() string {
-	return "/tmp/"
+	return "/var/lib/google-cloud-sql-server-agent/"
 }
 
 // OSCollection is the linux implementation of OSCollection.

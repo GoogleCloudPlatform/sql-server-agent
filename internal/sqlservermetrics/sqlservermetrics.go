@@ -20,6 +20,7 @@ package sqlservermetrics
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -204,7 +205,12 @@ func initCollection(ctx context.Context) (*wlm.WLM, error) {
 // checkAgentStatus checks agent status. Return error if it failed to activate.
 func checkAgentStatus(wlm wlm.WorkloadManagerService, path string) error {
 	agentStatus := activation.NewV1()
-	fp := filepath.Join(filepath.Dir(path), "google-cloud-sql-server-agent.activated")
+	dir := filepath.Dir(path)
+	// The directory may not exist yet, e.g. when running in onetime mode outside of systemd.
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		log.Logger.Warnw("Failed to create the agent state directory", "dir", dir, "error", err)
+	}
+	fp := filepath.Join(dir, "google-cloud-sql-server-agent.activated")
 	if !agentStatus.IsAgentActive(fp) {
 		log.Logger.Info("Agent is not active. Activating the agent.")
 		isActive, err := agentStatus.Activate(wlm, fp, SIP.Name, SIP.ProjectID, SIP.Instance, SIP.InstanceID)

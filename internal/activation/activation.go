@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/GoogleCloudPlatform/sql-server-agent/internal"
 	"github.com/GoogleCloudPlatform/sql-server-agent/internal/wlm"
 )
 
@@ -70,7 +69,7 @@ func (a *V1) Activate(s wlm.WorkloadManagerService, path, name, projectID, insta
 
 	if response.HTTPStatusCode == 201 {
 		a.Status = Activated
-		return true, internal.SaveToFile(path, []byte(""))
+		return true, writeMarker(path)
 	}
 	return false, fmt.Errorf("activating agent failed with result code %v", response.HTTPStatusCode)
 }

@@ -24,6 +24,9 @@ MemoryLimit=1G
 MemoryMax=1G
 ProtectSystem=full
 ReadWritePaths=/var/log /tmp -/usr/sqlserveragent
+# Root-owned directory for persistent agent state (e.g. the activation marker).
+StateDirectory=google-cloud-sql-server-agent
+StateDirectoryMode=0700
 # Do not use ProtectClock, when that is enabled then the agent cannot see LVM mounts
 ProtectKernelModules=true
 RestrictRealtime=true
