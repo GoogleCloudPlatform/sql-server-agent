@@ -21,7 +21,7 @@ import (
 	"context"
 	"fmt"
 
-	secretmanager "cloud.google.com/go/secretmanager/apiv1"
+	"google3/third_party/golang/cloud_google_com/go/secretmanager/v/v1/apiv1/secretmanager"
 	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 )
 
